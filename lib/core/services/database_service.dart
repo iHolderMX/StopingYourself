@@ -1,0 +1,239 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../models/profile.dart';
+import '../../models/category.dart';
+import '../../models/lesson.dart';
+import '../../models/user_progress.dart';
+import '../../models/relapse_record.dart';
+import '../../models/money_record.dart';
+import 'supabase_service.dart';
+
+final databaseServiceProvider = Provider<DatabaseService>((ref) {
+  return DatabaseService(ref.watch(supabaseClientProvider));
+});
+
+class DatabaseService {
+  final SupabaseClient _client;
+
+  DatabaseService(this._client);
+
+  Future<Profile> getOrCreateProfile(String userId, String email) async {
+    try {
+      final data = await _client
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+      if (data != null) return Profile.fromJson(data);
+    } catch (_) {
+      // Tabla profiles no existe o error RLS
+    }
+
+    // Si no hay perfil (trigger no configurado o tabla no existe),
+    // devolvemos un perfil por defecto
+    final fallback = Profile(
+      id: userId,
+      email: email,
+      displayName: email.split('@').first,
+    );
+
+    // Intentamos guardarlo para la proxima
+    try {
+      await _client.from('profiles').upsert(fallback.toJson());
+    } catch (_) {}
+
+    return fallback;
+  }
+
+  Future<void> upsertProfile(Profile profile) async {
+    try {
+      await _client.from('profiles').upsert(profile.toJson());
+    } catch (_) {}
+  }
+
+  Future<List<Category>> getCategories() async {
+    try {
+      final data = await _client
+          .from('categories')
+          .select()
+          .order('sort_order');
+      return data.map((e) => Category.fromJson(e)).toList();
+    } catch (_) {
+      return _defaultCategories();
+    }
+  }
+
+  Future<List<Lesson>> getLessonsByCategory(String categoryId) async {
+    try {
+      final data = await _client
+          .from('lessons')
+          .select()
+          .eq('category_id', categoryId)
+          .order('sort_order');
+      return data.map((e) => Lesson.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<Lesson?> getLesson(String lessonId) async {
+    final data = await _client
+        .from('lessons')
+        .select()
+        .eq('id', lessonId)
+        .maybeSingle();
+    if (data == null) return null;
+    return Lesson.fromJson(data);
+  }
+
+  Future<List<UserProgress>> getUserProgress(String userId) async {
+    try {
+      final data = await _client
+          .from('user_progress')
+          .select()
+          .eq('user_id', userId);
+      return data.map((e) => UserProgress.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> upsertProgress(UserProgress progress) async {
+    try {
+      await _client.from('user_progress').upsert(progress.toJson());
+    } catch (_) {}
+  }
+
+  Future<int> getCompletedLessonsCount(String userId) async {
+    try {
+      final data = await _client
+          .from('user_progress')
+          .select()
+          .eq('user_id', userId)
+          .eq('completed', true);
+      return data.length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<int> getTotalXp(String userId) async {
+    try {
+      final data = await _client
+          .from('user_progress')
+          .select('score')
+          .eq('user_id', userId);
+      int total = 0;
+      for (final item in data) {
+        total += (item['score'] as int?) ?? 0;
+      }
+      return total;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  List<Category> _defaultCategories() {
+    return [
+      Category(
+        id: '1',
+        name: 'Ansiedad',
+        emoji: '🧠',
+        colorHex: '#8B5A2B',
+        sortOrder: 1,
+      ),
+      Category(
+        id: '2',
+        name: 'Autoestima',
+        emoji: '💪',
+        colorHex: '#D4AF37',
+        sortOrder: 2,
+      ),
+      Category(
+        id: '3',
+        name: 'Habitos',
+        emoji: '🌱',
+        colorHex: '#228B22',
+        sortOrder: 3,
+      ),
+      Category(
+        id: '4',
+        name: 'Mindfulness',
+        emoji: '🧘',
+        colorHex: '#808080',
+        sortOrder: 4,
+      ),
+    ];
+  }
+
+  // ============================================================
+  // Recaidas
+  // ============================================================
+  Future<List<RelapseRecord>> getRelapseRecords(String userId) async {
+    try {
+      final data = await _client
+          .from('relapse_records')
+          .select()
+          .eq('user_id', userId)
+          .order('relapse_date', ascending: false);
+      return data.map((e) => RelapseRecord.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> insertRelapse(RelapseRecord record) async {
+    await _client.from('relapse_records').insert(record.toJson());
+  }
+
+  Future<void> deleteRelapse(String id) async {
+    try {
+      await _client.from('relapse_records').delete().eq('id', id);
+    } catch (_) {}
+  }
+
+  // ============================================================
+  // Dinero / Ahorros
+  // ============================================================
+  Future<List<MoneyRecord>> getMoneyRecords(String userId) async {
+    try {
+      final data = await _client
+          .from('money_records')
+          .select()
+          .eq('user_id', userId)
+          .order('date', ascending: false);
+      return data.map((e) => MoneyRecord.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> insertMoney(MoneyRecord record) async {
+    try {
+      await _client.from('money_records').insert(record.toJson());
+    } catch (_) {}
+  }
+
+  Future<void> deleteMoney(String id) async {
+    try {
+      await _client.from('money_records').delete().eq('id', id);
+    } catch (_) {}
+  }
+
+  Future<double> getTotalSaved(String userId) async {
+    try {
+      final data = await _client
+          .from('money_records')
+          .select('amount, type')
+          .eq('user_id', userId)
+          .eq('type', 'Ahorro');
+      double total = 0;
+      for (final item in data) {
+        total += (item['amount'] as num?)?.toDouble() ?? 0;
+      }
+      return total;
+    } catch (_) {
+      return 0;
+    }
+  }
+}
