@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../core/services/database_service.dart';
 import '../../../core/services/supabase_service.dart';
+import '../../../core/utils/responsive_helper.dart';
 import '../../../models/relapse_record.dart';
 
 final relapseRecordsProvider =
@@ -238,16 +239,17 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
         : null;
     final theme = Theme.of(context);
     final userData = user;
+    final r = ResponsiveHelper(context);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: r.pagePadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Seguimiento de Recaidas',
             style: GoogleFonts.outfit(
-              fontSize: 26,
+              fontSize: r.titleFontSize,
               fontWeight: FontWeight.bold,
               color: theme.colorScheme.onSurface,
             ),
@@ -256,11 +258,11 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
           Text(
             'Cada segundo sin recaer es una victoria.',
             style: GoogleFonts.inter(
-              fontSize: 14,
+              fontSize: r.subtitleFontSize,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: r.cardSpacing + 4),
 
           if (recordsAsync != null)
             recordsAsync.when(
@@ -272,25 +274,25 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
 
                 if (typeKeys.isEmpty) {
                   return Container(
-                    padding: const EdgeInsets.all(40),
-                    margin: const EdgeInsets.only(bottom: 24),
+                    padding: EdgeInsets.all(r.isDesktop ? 48 : 36),
+                    margin: EdgeInsets.only(bottom: r.cardSpacing + 4),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(r.borderRadius),
                     ),
                     child: Center(
                       child: Column(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.check_circle_outline,
-                            size: 56,
+                            size: r.iconSizeLarge,
                             color: Colors.green,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: r.cardSpacing),
                           Text(
                             'No hay recaidas registradas',
                             style: GoogleFonts.inter(
-                              fontSize: 15,
+                              fontSize: r.bodyFontSize,
                               fontWeight: FontWeight.w600,
                               color: theme.colorScheme.onSurface.withValues(
                                 alpha: 0.6,
@@ -301,7 +303,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                           Text(
                             'Registra tu primera recaida para empezar',
                             style: GoogleFonts.inter(
-                              fontSize: 13,
+                              fontSize: r.bodyFontSize - 2,
                               color: theme.colorScheme.onSurface.withValues(
                                 alpha: 0.4,
                               ),
@@ -321,8 +323,8 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                     // --- Resumen global ---
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      margin: const EdgeInsets.only(bottom: 20),
+                      padding: EdgeInsets.all(r.cardSpacing + 4),
+                      margin: EdgeInsets.only(bottom: r.cardSpacing + 4),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
@@ -330,14 +332,14 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                             theme.colorScheme.primary,
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(r.borderRadius),
                       ),
                       child: Column(
                         children: [
                           Text(
                             'Total de recaidas registradas',
                             style: GoogleFonts.inter(
-                              fontSize: 13,
+                              fontSize: r.bodyFontSize - 2,
                               color: Colors.white.withValues(alpha: 0.85),
                               letterSpacing: 1.2,
                             ),
@@ -346,7 +348,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                           Text(
                             '$totalRelapses',
                             style: GoogleFonts.outfit(
-                              fontSize: 48,
+                              fontSize: r.isDesktop ? 52 : 42,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
@@ -354,7 +356,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                           Text(
                             'en ${typeKeys.length} tipo${typeKeys.length > 1 ? 's' : ''}',
                             style: GoogleFonts.inter(
-                              fontSize: 14,
+                              fontSize: r.bodyFontSize - 1,
                               color: Colors.white.withValues(alpha: 0.8),
                             ),
                           ),
@@ -398,10 +400,10 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                 final countByType = _countByType(records);
                 if (records.isEmpty) return const SizedBox();
                 return Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: EdgeInsets.all(r.cardSpacing + 4),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(r.borderRadius),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.04),
@@ -416,13 +418,13 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                       Text(
                         'Distribucion de recaidas',
                         style: GoogleFonts.outfit(
-                          fontSize: 16,
+                          fontSize: r.subtitleFontSize,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: r.cardSpacing),
                       SizedBox(
-                        height: 200,
+                        height: r.isDesktop ? 240 : 200,
                         child: Row(
                           children: [
                             Expanded(
@@ -484,7 +486,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                                           child: Text(
                                             e.key,
                                             style: GoogleFonts.inter(
-                                              fontSize: 11,
+                                              fontSize: r.bodyFontSize - 3,
                                             ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -492,7 +494,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                                         Text(
                                           '${e.value}',
                                           style: GoogleFonts.outfit(
-                                            fontSize: 12,
+                                            fontSize: r.bodyFontSize - 2,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
@@ -517,21 +519,26 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
           InkWell(
             onTap: () => setState(() => _showForm = !_showForm),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              padding: EdgeInsets.symmetric(
+                vertical: r.isDesktop ? 14 : 12,
+                horizontal: r.isDesktop ? 20 : 16,
+              ),
               decoration: BoxDecoration(
                 color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(r.borderRadius - 2),
               ),
               child: Row(
                 children: [
                   Icon(
                     _showForm ? Icons.expand_less : Icons.expand_more,
                     color: theme.colorScheme.primary,
+                    size: r.iconSizeMedium,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     _showForm ? 'Ocultar formulario' : 'Nueva recaida',
                     style: GoogleFonts.inter(
+                      fontSize: r.bodyFontSize,
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.primary,
                     ),
@@ -540,7 +547,10 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
               ),
             ),
           ),
-          if (_showForm) ...[const SizedBox(height: 12), _buildForm(theme)],
+          if (_showForm) ...[
+            SizedBox(height: r.cardSpacing),
+            _buildForm(theme, r),
+          ],
 
           const SizedBox(height: 28),
 
@@ -549,7 +559,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
             recordsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
-              data: (records) => _buildHistory(theme, userData, records),
+              data: (records) => _buildHistory(theme, userData, records, r),
             ),
 
           const SizedBox(height: 40),
@@ -577,12 +587,12 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
     ref.invalidate(relapseRecordsProvider(userData.id));
   }
 
-  Widget _buildForm(ThemeData theme) {
+  Widget _buildForm(ThemeData theme, ResponsiveHelper r) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(r.cardSpacing + 4),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(r.borderRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -597,16 +607,17 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
           Text(
             'Nueva recaida',
             style: GoogleFonts.outfit(
-              fontSize: 16,
+              fontSize: r.subtitleFontSize,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: r.cardSpacing),
           DropdownButtonFormField<String>(
             value: _selectedType,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Tipo de recaida',
-              prefixIcon: Icon(Icons.warning_amber_rounded),
+              prefixIcon: const Icon(Icons.warning_amber_rounded),
+              labelStyle: GoogleFonts.inter(fontSize: r.bodyFontSize - 2),
             ),
             items: relapseTypes
                 .map((t) => DropdownMenuItem(value: t, child: Text(t)))
@@ -616,26 +627,30 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
             },
           ),
           if (_selectedType == 'Otro') ...[
-            const SizedBox(height: 12),
+            SizedBox(height: r.cardSpacing - 4),
             TextField(
               controller: _customController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Especifica el tipo',
                 hintText: 'Ej: Apuestas deportivas',
-                prefixIcon: Icon(Icons.edit),
+                prefixIcon: const Icon(Icons.edit),
+                labelStyle: GoogleFonts.inter(fontSize: r.bodyFontSize - 2),
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          SizedBox(height: r.cardSpacing - 4),
           Row(
             children: [
               Expanded(
                 child: InkWell(
                   onTap: _pickDate,
                   child: InputDecorator(
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Fecha',
-                      prefixIcon: Icon(Icons.calendar_today),
+                      prefixIcon: const Icon(Icons.calendar_today),
+                      labelStyle: GoogleFonts.inter(
+                        fontSize: r.bodyFontSize - 2,
+                      ),
                     ),
                     child: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
                   ),
@@ -646,9 +661,12 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                 child: InkWell(
                   onTap: _pickTime,
                   child: InputDecorator(
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Hora',
-                      prefixIcon: Icon(Icons.access_time),
+                      prefixIcon: const Icon(Icons.access_time),
+                      labelStyle: GoogleFonts.inter(
+                        fontSize: r.bodyFontSize - 2,
+                      ),
                     ),
                     child: Text(_selectedTime.format(context)),
                   ),
@@ -656,19 +674,20 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: r.cardSpacing - 4),
           TextField(
             controller: _notesController,
             maxLines: 2,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Notas (opcional)',
               hintText: 'Que paso antes de la recaida...',
-              prefixIcon: Icon(Icons.notes),
+              prefixIcon: const Icon(Icons.notes),
+              labelStyle: GoogleFonts.inter(fontSize: r.bodyFontSize - 2),
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: r.cardSpacing + 4),
           SizedBox(
-            height: 52,
+            height: r.buttonHeight,
             child: ElevatedButton.icon(
               onPressed: _saving ? null : _save,
               icon: _saving
@@ -693,6 +712,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
     ThemeData theme,
     dynamic userData,
     List<RelapseRecord> records,
+    ResponsiveHelper r,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -703,40 +723,40 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
             Text(
               'Historial',
               style: GoogleFonts.outfit(
-                fontSize: 18,
+                fontSize: r.subtitleFontSize + 2,
                 fontWeight: FontWeight.w600,
               ),
             ),
             Text(
               '${records.length} registros',
               style: GoogleFonts.inter(
-                fontSize: 13,
+                fontSize: r.bodyFontSize - 2,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: r.cardSpacing - 4),
         if (records.isEmpty)
           Container(
-            padding: const EdgeInsets.all(40),
+            padding: EdgeInsets.all(r.isDesktop ? 48 : 36),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(r.borderRadius),
             ),
             child: Center(
               child: Column(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.check_circle_outline,
-                    size: 56,
+                    size: r.iconSizeLarge,
                     color: Colors.green,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: r.cardSpacing),
                   Text(
                     'No hay recaidas registradas',
                     style: GoogleFonts.inter(
-                      fontSize: 15,
+                      fontSize: r.bodyFontSize,
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
@@ -750,62 +770,62 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: records.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, __) => SizedBox(height: r.cardSpacing - 4),
             itemBuilder: (context, index) {
-              final r = records[index];
+              final rec = records[index];
               return Material(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(r.borderRadius - 2),
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(r.cardSpacing),
                   child: Row(
                     children: [
                       Container(
-                        width: 48,
-                        height: 48,
+                        width: r.isDesktop ? 52 : 48,
+                        height: r.isDesktop ? 52 : 48,
                         decoration: BoxDecoration(
                           color: Colors.red.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.warning_rounded,
                           color: Colors.red,
-                          size: 24,
+                          size: r.iconSizeMedium,
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      SizedBox(width: r.cardSpacing - 2),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              r.relapseType == 'Otro'
-                                  ? (r.customType ?? 'Otro')
-                                  : r.relapseType,
+                              rec.relapseType == 'Otro'
+                                  ? (rec.customType ?? 'Otro')
+                                  : rec.relapseType,
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.w600,
-                                fontSize: 15,
+                                fontSize: r.bodyFontSize,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${DateFormat('dd/MM/yyyy').format(r.relapseDate)}  ${DateFormat('HH:mm').format(r.relapseDate)}',
+                              '${DateFormat('dd/MM/yyyy').format(rec.relapseDate)}  ${DateFormat('HH:mm').format(rec.relapseDate)}',
                               style: GoogleFonts.inter(
-                                fontSize: 12,
+                                fontSize: r.bodyFontSize - 2,
                                 color: theme.colorScheme.onSurface.withValues(
                                   alpha: 0.45,
                                 ),
                               ),
                             ),
-                            if (r.notes != null && r.notes!.isNotEmpty)
+                            if (rec.notes != null && rec.notes!.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
-                                  r.notes!,
+                                  rec.notes!,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.inter(
-                                    fontSize: 12,
+                                    fontSize: r.bodyFontSize - 2,
                                     color: theme.colorScheme.onSurface
                                         .withValues(alpha: 0.5),
                                   ),
@@ -815,16 +835,16 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.delete_outline,
                           color: Colors.red,
-                          size: 20,
+                          size: r.iconSizeMedium - 2,
                         ),
                         onPressed: () async {
                           if (userData == null) return;
                           await ref
                               .read(databaseServiceProvider)
-                              .deleteRelapse(r.id);
+                              .deleteRelapse(rec.id);
                           ref.invalidate(relapseRecordsProvider(userData.id));
                         },
                       ),
@@ -864,15 +884,16 @@ class _TypeTrackerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final r = ResponsiveHelper(context);
     final daysSince = elapsed.inDays;
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
+      margin: EdgeInsets.only(bottom: r.cardSpacing),
+      padding: EdgeInsets.all(r.cardSpacing + 2),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(r.borderRadius),
         border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1),
         boxShadow: [
           BoxShadow(
@@ -889,8 +910,8 @@ class _TypeTrackerCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: r.isDesktop ? 50 : 42,
+                height: r.isDesktop ? 50 : 42,
                 decoration: BoxDecoration(
                   color: accentColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
@@ -899,7 +920,7 @@ class _TypeTrackerCard extends StatelessWidget {
                   child: Icon(
                     Icons.warning_rounded,
                     color: accentColor,
-                    size: 22,
+                    size: r.iconSizeMedium,
                   ),
                 ),
               ),
@@ -911,7 +932,7 @@ class _TypeTrackerCard extends StatelessWidget {
                     Text(
                       typeName,
                       style: GoogleFonts.outfit(
-                        fontSize: 17,
+                        fontSize: r.subtitleFontSize + 2,
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.onSurface,
                       ),
@@ -919,7 +940,7 @@ class _TypeTrackerCard extends StatelessWidget {
                     Text(
                       '$totalCount recaida${totalCount > 1 ? 's' : ''} total${totalCount > 1 ? 'es' : ''}',
                       style: GoogleFonts.inter(
-                        fontSize: 12,
+                        fontSize: r.bodyFontSize - 2,
                         color: theme.colorScheme.onSurface.withValues(
                           alpha: 0.45,
                         ),
@@ -940,7 +961,7 @@ class _TypeTrackerCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: r.cardSpacing),
 
           // --- Contador de tiempo sin recaer ---
           Row(
@@ -952,7 +973,7 @@ class _TypeTrackerCard extends StatelessWidget {
                     Text(
                       'Tiempo sin recaer',
                       style: GoogleFonts.inter(
-                        fontSize: 11,
+                        fontSize: r.bodyFontSize - 3,
                         color: theme.colorScheme.onSurface.withValues(
                           alpha: 0.5,
                         ),
@@ -963,7 +984,7 @@ class _TypeTrackerCard extends StatelessWidget {
                     Text(
                       _formatDuration(elapsed),
                       style: GoogleFonts.outfit(
-                        fontSize: 28,
+                        fontSize: r.isDesktop ? 32 : 26,
                         fontWeight: FontWeight.bold,
                         color: accentColor,
                         height: 1.1,
@@ -975,7 +996,7 @@ class _TypeTrackerCard extends StatelessWidget {
                         child: Text(
                           '$daysSince dias limpio',
                           style: GoogleFonts.inter(
-                            fontSize: 12,
+                            fontSize: r.bodyFontSize - 2,
                             color: accentColor.withValues(alpha: 0.7),
                           ),
                         ),
@@ -988,7 +1009,7 @@ class _TypeTrackerCard extends StatelessWidget {
                   Text(
                     'Ultima:',
                     style: GoogleFonts.inter(
-                      fontSize: 10,
+                      fontSize: r.bodyFontSize - 4,
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                     ),
                   ),
@@ -996,7 +1017,7 @@ class _TypeTrackerCard extends StatelessWidget {
                   Text(
                     DateFormat('dd/MM/yy').format(lastDate),
                     style: GoogleFonts.outfit(
-                      fontSize: 14,
+                      fontSize: r.bodyFontSize - 1,
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
@@ -1004,7 +1025,7 @@ class _TypeTrackerCard extends StatelessWidget {
                   Text(
                     DateFormat('HH:mm').format(lastDate),
                     style: GoogleFonts.inter(
-                      fontSize: 11,
+                      fontSize: r.bodyFontSize - 3,
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                     ),
                   ),
@@ -1013,7 +1034,7 @@ class _TypeTrackerCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: r.cardSpacing),
 
           // --- Barras de milestones para este tipo ---
           ..._milestones.map((m) {
@@ -1026,7 +1047,7 @@ class _TypeTrackerCard extends StatelessWidget {
             final barColor = completed ? const Color(0xFF228B22) : accentColor;
 
             return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: EdgeInsets.only(bottom: r.cardSpacing - 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1035,12 +1056,15 @@ class _TypeTrackerCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(m.emoji, style: const TextStyle(fontSize: 13)),
+                          Text(
+                            m.emoji,
+                            style: TextStyle(fontSize: r.bodyFontSize - 1),
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             m.label,
                             style: GoogleFonts.outfit(
-                              fontSize: 12,
+                              fontSize: r.bodyFontSize - 2,
                               fontWeight: completed
                                   ? FontWeight.w700
                                   : FontWeight.w500,
@@ -1056,7 +1080,7 @@ class _TypeTrackerCard extends StatelessWidget {
                       Text(
                         completed ? 'Hecho' : '${(progress * 100).toInt()}%',
                         style: GoogleFonts.inter(
-                          fontSize: 11,
+                          fontSize: r.bodyFontSize - 3,
                           fontWeight: FontWeight.w600,
                           color: barColor,
                         ),
@@ -1067,7 +1091,7 @@ class _TypeTrackerCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(999),
                     child: SizedBox(
-                      height: 8,
+                      height: r.isDesktop ? 10 : 8,
                       child: Stack(
                         children: [
                           Container(
