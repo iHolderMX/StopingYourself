@@ -395,7 +395,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
           if (recordsAsync != null)
             recordsAsync.when(
               loading: () => const SizedBox(),
-              error: (_, __) => const SizedBox(),
+              error: (e, st) => const SizedBox(),
               data: (records) {
                 final countByType = _countByType(records);
                 if (records.isEmpty) return const SizedBox();
@@ -613,7 +613,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
           ),
           SizedBox(height: r.cardSpacing),
           DropdownButtonFormField<String>(
-            value: _selectedType,
+            initialValue: _selectedType,
             decoration: InputDecoration(
               labelText: 'Tipo de recaida',
               prefixIcon: const Icon(Icons.warning_amber_rounded),
@@ -770,7 +770,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: records.length,
-            separatorBuilder: (_, __) => SizedBox(height: r.cardSpacing - 4),
+            separatorBuilder: (_, i) => SizedBox(height: r.cardSpacing - 4),
             itemBuilder: (context, index) {
               final rec = records[index];
               return Material(

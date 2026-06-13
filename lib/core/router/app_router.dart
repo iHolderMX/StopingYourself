@@ -7,7 +7,7 @@ import '../../features/lessons/screens/lessons_screen.dart';
 import '../../features/lessons/screens/lesson_detail_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/relapse/screens/relapse_tracking_screen.dart';
-import '../../features/money/screens/money_tracking_screen.dart';
+import '../../features/money/screens/finance_hub_screen.dart';
 import '../services/supabase_service.dart';
 import '../shell/app_shell.dart';
 
@@ -15,10 +15,11 @@ final routerProvider = Provider<GoRouter>((ref) {
   final client = ref.watch(supabaseClientProvider);
 
   return GoRouter(
-    initialLocation: '/',
     redirect: (context, state) {
       final isLoggedIn = client.auth.currentUser != null;
-      final isOnLogin = state.matchedLocation == '/';
+      final location = state.matchedLocation;
+
+      final isOnLogin = location == '/';
 
       if (!isLoggedIn && !isOnLogin) {
         return '/';
@@ -47,7 +48,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/money',
-            builder: (context, state) => const MoneyTrackingScreen(),
+            builder: (context, state) => const FinanceHubScreen(),
           ),
           GoRoute(
             path: '/profile',
@@ -64,6 +65,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 LessonDetailScreen(lessonId: state.pathParameters['lessonId']!),
           ),
         ],
+      ),
+      // Ruta comodin: cualquier URL no reconocida
+      GoRoute(
+        path: '/:any',
+        redirect: (context, state) {
+          final isLoggedIn = client.auth.currentUser != null;
+          return isLoggedIn ? '/dashboard' : '/';
+        },
       ),
     ],
   );

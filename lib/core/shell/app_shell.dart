@@ -117,14 +117,7 @@ class _DesktopLayout extends StatelessWidget {
             ],
           ),
           const VerticalDivider(width: 1),
-          Expanded(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
-                child: child,
-              ),
-            ),
-          ),
+          Expanded(child: child),
         ],
       ),
     );

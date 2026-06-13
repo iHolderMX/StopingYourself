@@ -6,6 +6,8 @@ import '../../models/lesson.dart';
 import '../../models/user_progress.dart';
 import '../../models/relapse_record.dart';
 import '../../models/money_record.dart';
+import '../../models/fixed_expense.dart';
+import '../../models/salary_setting.dart';
 import 'supabase_service.dart';
 
 final databaseServiceProvider = Provider<DatabaseService>((ref) {
@@ -224,9 +226,8 @@ class DatabaseService {
     try {
       final data = await _client
           .from('money_records')
-          .select('amount, type')
-          .eq('user_id', userId)
-          .eq('type', 'Ahorro');
+          .select('amount')
+          .eq('user_id', userId);
       double total = 0;
       for (final item in data) {
         total += (item['amount'] as num?)?.toDouble() ?? 0;
@@ -235,5 +236,87 @@ class DatabaseService {
     } catch (_) {
       return 0;
     }
+  }
+
+  /// Suma total de ganancias diarias de todos los registros
+  Future<double> getTotalDailyEarnings(String userId) async {
+    try {
+      final data = await _client
+          .from('money_records')
+          .select('amount, annual_yield')
+          .eq('user_id', userId);
+      double total = 0;
+      for (final item in data) {
+        final amount = (item['amount'] as num?)?.toDouble() ?? 0;
+        final yieldVal = (item['annual_yield'] as num?)?.toDouble() ?? 0;
+        if (yieldVal > 0) {
+          total += amount * (yieldVal / 100) / 365;
+        }
+      }
+      return total;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // ============================================================
+  // Gastos fijos mensuales
+  // ============================================================
+  Future<List<FixedExpense>> getFixedExpenses(String userId) async {
+    try {
+      final data = await _client
+          .from('fixed_expenses')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      return data.map((e) => FixedExpense.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> insertFixedExpense(FixedExpense expense) async {
+    await _client.from('fixed_expenses').insert(expense.toJson());
+  }
+
+  Future<void> deleteFixedExpense(String id) async {
+    await _client.from('fixed_expenses').delete().eq('id', id);
+  }
+
+  Future<double> getTotalFixedExpenses(String userId) async {
+    try {
+      final data = await _client
+          .from('fixed_expenses')
+          .select('amount')
+          .eq('user_id', userId);
+      double total = 0;
+      for (final item in data) {
+        total += (item['amount'] as num?)?.toDouble() ?? 0;
+      }
+      return total;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // ============================================================
+  // Salario
+  // ============================================================
+  Future<SalarySetting?> getSalarySetting(String userId) async {
+    try {
+      final data = await _client
+          .from('salary_settings')
+          .select()
+          .eq('user_id', userId)
+          .maybeSingle();
+      if (data == null) return null;
+      return SalarySetting.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> upsertSalary(SalarySetting salary) async {
+    await _client.from('salary_settings').upsert(salary.toJson());
   }
 }

@@ -58,7 +58,7 @@ class LessonsScreen extends ConsumerWidget {
           ),
         ),
         data: (lessons) {
-          if (lessons.isEmpty)
+          if (lessons.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -79,6 +79,7 @@ class LessonsScreen extends ConsumerWidget {
                 ],
               ),
             );
+          }
           return ListView.builder(
             padding: r.pagePadding,
             itemCount: lessons.length,

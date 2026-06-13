@@ -257,10 +257,14 @@ CREATE TABLE IF NOT EXISTS public.money_records (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   type TEXT NOT NULL,
   amount NUMERIC(12, 2) NOT NULL,
+  annual_yield NUMERIC(5, 2) NOT NULL DEFAULT 0,
   description TEXT,
   date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migracion para tablas existentes (ejecutar si ya tenias registros)
+ALTER TABLE public.money_records ADD COLUMN IF NOT EXISTS annual_yield NUMERIC(5, 2) NOT NULL DEFAULT 0;
 
 ALTER TABLE public.money_records ENABLE ROW LEVEL SECURITY;
 
@@ -277,3 +281,54 @@ CREATE POLICY "Eliminar finanza propia" ON public.money_records
   FOR DELETE USING (auth.uid() = user_id);
 
 CREATE INDEX IF NOT EXISTS idx_money_user_id ON public.money_records(user_id);
+
+-- ============================================================
+-- 7. Tabla de gastos fijos mensuales
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.fixed_expenses (
+  id TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  category TEXT NOT NULL DEFAULT 'Otros',
+  name TEXT NOT NULL DEFAULT '',
+  amount NUMERIC(10, 2) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.fixed_expenses ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Ver gastos propios" ON public.fixed_expenses;
+CREATE POLICY "Ver gastos propios" ON public.fixed_expenses
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Insertar gasto propio" ON public.fixed_expenses;
+CREATE POLICY "Insertar gasto propio" ON public.fixed_expenses
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Eliminar gasto propio" ON public.fixed_expenses;
+CREATE POLICY "Eliminar gasto propio" ON public.fixed_expenses
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_fixed_expenses_user_id ON public.fixed_expenses(user_id);
+
+-- ============================================================
+-- 8. Tabla de configuracion de salario (un registro por usuario)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.salary_settings (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  monthly_salary NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.salary_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Ver salario propio" ON public.salary_settings;
+CREATE POLICY "Ver salario propio" ON public.salary_settings
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Insertar salario propio" ON public.salary_settings;
+CREATE POLICY "Insertar salario propio" ON public.salary_settings
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Actualizar salario propio" ON public.salary_settings;
+CREATE POLICY "Actualizar salario propio" ON public.salary_settings
+  FOR UPDATE USING (auth.uid() = user_id);
