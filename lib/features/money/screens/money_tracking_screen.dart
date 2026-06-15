@@ -23,7 +23,8 @@ final totalDailyEarningsProvider = FutureProvider.family<double, String>(
 const moneyTypes = ['Ahorro', 'Inversion', 'Meta financiera'];
 
 class MoneyTrackingScreen extends ConsumerStatefulWidget {
-  const MoneyTrackingScreen({super.key});
+  final bool compact;
+  const MoneyTrackingScreen({super.key, this.compact = true});
   @override
   ConsumerState<MoneyTrackingScreen> createState() =>
       _MoneyTrackingScreenState();
@@ -115,403 +116,389 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
         : null;
     final theme = Theme.of(context);
     final r = ResponsiveHelper(context);
+    final neon = theme.colorScheme.primary;
+    final neon2 = theme.colorScheme.secondary;
+    final neon3 = theme.colorScheme.tertiary;
 
-    return SingleChildScrollView(
-      padding: r.pagePadding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // --- Header ---
-          Text(
-            'Finanzas Personales',
-            style: GoogleFonts.outfit(
-              fontSize: r.titleFontSize,
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface,
-            ),
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Finanzas Personales',
+          style: GoogleFonts.outfit(
+            fontSize: r.titleFontSize,
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
           ),
-          SizedBox(height: 6),
-          Text(
-            'Controla tus ahorros, inversiones y rendimientos.',
-            style: GoogleFonts.inter(
-              fontSize: r.subtitleFontSize,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
+        ),
+        SizedBox(height: 6),
+        Text(
+          'Controla tus ahorros, inversiones y rendimientos.',
+          style: GoogleFonts.inter(
+            fontSize: r.subtitleFontSize,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
           ),
-          SizedBox(height: r.cardSpacing + 4),
+        ),
+        SizedBox(height: r.cardSpacing + 4),
 
-          // --- Cards de resumen ---
-          if (totalAsync != null && dailyEarningsAsync != null)
-            Builder(
-              builder: (_) {
-                final total = totalAsync.asData?.value ?? 0;
-                final daily = dailyEarningsAsync.asData?.value ?? 0;
-                final cols = r.statColumns;
-                return Wrap(
-                  spacing: r.cardSpacing - 4,
-                  runSpacing: r.cardSpacing - 4,
-                  children: [
-                    SizedBox(
-                      width: _cardWidth(context, cols),
-                      child: _SummaryCard(
-                        r: r,
-                        title: 'Total ahorrado',
-                        value: '\$${total.toStringAsFixed(2)}',
-                        icon: Icons.account_balance_wallet,
-                        color: const Color(0xFF228B22),
-                      ),
+        // --- Cards de resumen ---
+        if (totalAsync != null && dailyEarningsAsync != null)
+          Builder(
+            builder: (_) {
+              final total = totalAsync.asData?.value ?? 0;
+              final daily = dailyEarningsAsync.asData?.value ?? 0;
+              final cols = r.statColumns;
+              return Wrap(
+                spacing: r.cardSpacing - 4,
+                runSpacing: r.cardSpacing - 4,
+                children: [
+                  SizedBox(
+                    width: _cardWidth(context, cols),
+                    child: _SummaryCard(
+                      r: r,
+                      title: 'Total ahorrado',
+                      value: '\$${total.toStringAsFixed(2)}',
+                      icon: Icons.account_balance_wallet,
+                      color: neon,
                     ),
-                    SizedBox(
-                      width: _cardWidth(context, cols),
-                      child: _SummaryCard(
-                        r: r,
-                        title: 'Ganancia diaria',
-                        value: '\$${daily.toStringAsFixed(4)}',
-                        subtitle: '/ dia',
-                        icon: Icons.trending_up,
-                        color: const Color(0xFF1E90FF),
-                      ),
+                  ),
+                  SizedBox(
+                    width: _cardWidth(context, cols),
+                    child: _SummaryCard(
+                      r: r,
+                      title: 'Ganancia diaria',
+                      value: '\$${daily.toStringAsFixed(4)}',
+                      subtitle: '/ dia',
+                      icon: Icons.trending_up,
+                      color: neon2,
                     ),
-                    SizedBox(
-                      width: _cardWidth(context, cols),
-                      child: _SummaryCard(
-                        r: r,
-                        title: 'Rendimiento anual',
-                        value: '\$${(daily * 365).toStringAsFixed(2)}',
-                        subtitle: 'estimado',
-                        icon: Icons.show_chart,
-                        color: const Color(0xFF9C27B0),
-                      ),
+                  ),
+                  SizedBox(
+                    width: _cardWidth(context, cols),
+                    child: _SummaryCard(
+                      r: r,
+                      title: 'Rendimiento anual',
+                      value: '\$${(daily * 365).toStringAsFixed(2)}',
+                      subtitle: 'estimado',
+                      icon: Icons.show_chart,
+                      color: neon3,
                     ),
-                  ],
-                );
-              },
-            ),
-
-          SizedBox(height: r.cardSpacing + 6),
-
-          // --- Formulario ---
-          Container(
-            padding: EdgeInsets.all(r.cardSpacing + 2),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(r.borderRadius),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Nuevo registro',
-                  style: GoogleFonts.outfit(
-                    fontSize: r.subtitleFontSize,
-                    fontWeight: FontWeight.w600,
                   ),
-                ),
-                SizedBox(height: r.cardSpacing),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedType,
-                  decoration: const InputDecoration(
-                    labelText: 'Tipo',
-                    prefixIcon: Icon(Icons.category_outlined),
-                  ),
-                  items: moneyTypes
-                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => _selectedType = v);
-                  },
-                ),
-                SizedBox(height: r.cardSpacing - 4),
-                TextField(
-                  controller: _amountController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Monto (\$)',
-                    hintText: '0.00',
-                    prefixIcon: Icon(Icons.attach_money),
-                  ),
-                ),
-                SizedBox(height: r.cardSpacing - 4),
-                TextField(
-                  controller: _yieldController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Rendimiento anual (%)',
-                    hintText: 'Ej: 10.5 para 10.5%',
-                    prefixIcon: Icon(Icons.percent),
-                  ),
-                ),
-                SizedBox(height: r.cardSpacing - 4),
-                InkWell(
-                  onTap: _pickDate,
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Fecha',
-                      prefixIcon: Icon(Icons.calendar_today),
-                    ),
-                    child: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
-                  ),
-                ),
-                SizedBox(height: r.cardSpacing - 4),
-                TextField(
-                  controller: _descController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Descripcion (opcional)',
-                    hintText: 'Ej: Ahorro de la quincena',
-                    prefixIcon: Icon(Icons.notes),
-                  ),
-                ),
-                SizedBox(height: r.cardSpacing + 2),
-                SizedBox(
-                  height: r.buttonHeight,
-                  child: ElevatedButton.icon(
-                    onPressed: _saving ? null : _save,
-                    icon: _saving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.save),
-                    label: Text(_saving ? 'Guardando...' : 'Guardar registro'),
-                  ),
-                ),
-              ],
-            ),
+                ],
+              );
+            },
           ),
 
-          SizedBox(height: r.cardSpacing + 12),
+        SizedBox(height: r.cardSpacing + 6),
 
-          // --- Historial ---
-          Text(
-            'Historial',
-            style: GoogleFonts.outfit(
-              fontSize: r.subtitleFontSize + 2,
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
-            ),
+        // --- Formulario ---
+        Container(
+          padding: EdgeInsets.all(r.cardSpacing + 2),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(r.borderRadius),
+            boxShadow: [
+              BoxShadow(
+                color: neon.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          SizedBox(height: r.cardSpacing - 4),
-
-          if (recordsAsync == null)
-            const Center(child: CircularProgressIndicator())
-          else
-            recordsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (records) {
-                if (records.isEmpty) {
-                  return Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(r.borderRadius),
-                    ),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.savings_outlined,
-                            size: r.iconSizeLarge,
-                            color: Colors.grey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Nuevo registro',
+                style: GoogleFonts.outfit(
+                  fontSize: r.subtitleFontSize,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: r.cardSpacing),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedType,
+                decoration: const InputDecoration(
+                  labelText: 'Tipo',
+                  prefixIcon: Icon(Icons.category_outlined),
+                ),
+                items: moneyTypes
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _selectedType = v);
+                },
+              ),
+              SizedBox(height: r.cardSpacing - 4),
+              TextField(
+                controller: _amountController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Monto (\$)',
+                  hintText: '0.00',
+                  prefixIcon: Icon(Icons.attach_money),
+                ),
+              ),
+              SizedBox(height: r.cardSpacing - 4),
+              TextField(
+                controller: _yieldController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Rendimiento anual (%)',
+                  hintText: 'Ej: 10.5 para 10.5%',
+                  prefixIcon: Icon(Icons.percent),
+                ),
+              ),
+              SizedBox(height: r.cardSpacing - 4),
+              InkWell(
+                onTap: _pickDate,
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Fecha',
+                    prefixIcon: Icon(Icons.calendar_today),
+                  ),
+                  child: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
+                ),
+              ),
+              SizedBox(height: r.cardSpacing - 4),
+              TextField(
+                controller: _descController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Descripcion (opcional)',
+                  hintText: 'Ej: Ahorro de la quincena',
+                  prefixIcon: Icon(Icons.notes),
+                ),
+              ),
+              SizedBox(height: r.cardSpacing + 2),
+              SizedBox(
+                height: r.buttonHeight,
+                child: ElevatedButton.icon(
+                  onPressed: _saving ? null : _save,
+                  icon: _saving
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: theme.colorScheme.onPrimary,
                           ),
-                          SizedBox(height: 12),
-                          Text(
-                            'No hay registros de dinero',
-                            style: GoogleFonts.inter(
-                              fontSize: r.bodyFontSize,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.5,
-                              ),
+                        )
+                      : const Icon(Icons.save),
+                  label: Text(_saving ? 'Guardando...' : 'Guardar registro'),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        SizedBox(height: r.cardSpacing + 12),
+
+        // --- Historial ---
+        Text(
+          'Historial',
+          style: GoogleFonts.outfit(
+            fontSize: r.subtitleFontSize + 2,
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        SizedBox(height: r.cardSpacing - 4),
+
+        if (recordsAsync == null)
+          const Center(child: CircularProgressIndicator())
+        else
+          recordsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (records) {
+              if (records.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(r.borderRadius),
+                  ),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.savings_outlined,
+                          size: r.iconSizeLarge,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.2,
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'No hay registros de dinero',
+                          style: GoogleFonts.inter(
+                            fontSize: r.bodyFontSize,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
                             ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: records.length,
+                separatorBuilder: (_, i) => SizedBox(height: r.cardSpacing - 8),
+                itemBuilder: (context, index) {
+                  final rec = records[index];
+                  return Material(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(r.borderRadius),
+                    child: Padding(
+                      padding: EdgeInsets.all(r.cardSpacing),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: r.isDesktop ? 50 : 44,
+                            height: r.isDesktop ? 50 : 44,
+                            decoration: BoxDecoration(
+                              color: neon.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.trending_up,
+                              color: neon,
+                              size: r.iconSizeMedium,
+                            ),
+                          ),
+                          SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      rec.type,
+                                      style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: r.bodyFontSize,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      '\$${rec.amount.toStringAsFixed(2)}',
+                                      style: GoogleFonts.outfit(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: r.bodyFontSize,
+                                        color: neon,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 2),
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 6,
+                                  runSpacing: 2,
+                                  children: [
+                                    Text(
+                                      DateFormat('dd/MM/yyyy').format(rec.date),
+                                      style: GoogleFonts.inter(
+                                        fontSize: r.bodyFontSize - 2,
+                                        color: theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.4),
+                                      ),
+                                    ),
+                                    if (rec.annualYield > 0) ...[
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 1,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: neon2.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '${rec.annualYield.toStringAsFixed(1)}%',
+                                          style: GoogleFonts.inter(
+                                            fontSize: r.bodyFontSize - 3,
+                                            fontWeight: FontWeight.w600,
+                                            color: neon2,
+                                          ),
+                                        ),
+                                      ),
+                                      if (rec.dailyEarnings > 0)
+                                        Text(
+                                          '+\$${rec.dailyEarnings.toStringAsFixed(4)}/dia',
+                                          style: GoogleFonts.inter(
+                                            fontSize: r.bodyFontSize - 3,
+                                            color: neon2.withValues(alpha: 0.7),
+                                          ),
+                                        ),
+                                    ],
+                                  ],
+                                ),
+                                if (rec.description != null &&
+                                    rec.description!.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      rec.description!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(
+                                        fontSize: r.bodyFontSize - 2,
+                                        color: theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.5),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              color: neon,
+                              size: 20,
+                            ),
+                            onPressed: () async {
+                              if (user == null) return;
+                              await ref
+                                  .read(databaseServiceProvider)
+                                  .deleteMoney(rec.id);
+                              ref.invalidate(moneyRecordsProvider(user.id));
+                              ref.invalidate(totalSavedProvider(user.id));
+                              ref.invalidate(
+                                totalDailyEarningsProvider(user.id),
+                              );
+                            },
                           ),
                         ],
                       ),
                     ),
                   );
-                }
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: records.length,
-                  separatorBuilder: (_, i) =>
-                      SizedBox(height: r.cardSpacing - 8),
-                  itemBuilder: (context, index) {
-                    final rec = records[index];
-                    final isPositive =
-                        rec.type == 'Ahorro' || rec.type == 'Inversion';
-                    return Material(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(r.borderRadius),
-                      child: Padding(
-                        padding: EdgeInsets.all(r.cardSpacing),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: r.isDesktop ? 50 : 44,
-                              height: r.isDesktop ? 50 : 44,
-                              decoration: BoxDecoration(
-                                color:
-                                    (isPositive
-                                            ? const Color(0xFF228B22)
-                                            : Colors.orange)
-                                        .withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                isPositive
-                                    ? Icons.trending_up
-                                    : Icons.trending_down,
-                                color: isPositive
-                                    ? const Color(0xFF228B22)
-                                    : Colors.orange,
-                                size: r.iconSizeMedium,
-                              ),
-                            ),
-                            SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        rec.type,
-                                        style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: r.bodyFontSize,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Text(
-                                        '\$${rec.amount.toStringAsFixed(2)}',
-                                        style: GoogleFonts.outfit(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: r.bodyFontSize,
-                                          color: isPositive
-                                              ? const Color(0xFF228B22)
-                                              : Colors.orange,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 2),
-                                  Wrap(
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    spacing: 6,
-                                    runSpacing: 2,
-                                    children: [
-                                      Text(
-                                        DateFormat(
-                                          'dd/MM/yyyy',
-                                        ).format(rec.date),
-                                        style: GoogleFonts.inter(
-                                          fontSize: r.bodyFontSize - 2,
-                                          color: theme.colorScheme.onSurface
-                                              .withValues(alpha: 0.4),
-                                        ),
-                                      ),
-                                      if (rec.annualYield > 0) ...[
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 1,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: const Color(
-                                              0xFF1E90FF,
-                                            ).withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '${rec.annualYield.toStringAsFixed(1)}%',
-                                            style: GoogleFonts.inter(
-                                              fontSize: r.bodyFontSize - 3,
-                                              fontWeight: FontWeight.w600,
-                                              color: const Color(0xFF1E90FF),
-                                            ),
-                                          ),
-                                        ),
-                                        if (rec.dailyEarnings > 0)
-                                          Text(
-                                            '+\$${rec.dailyEarnings.toStringAsFixed(4)}/dia',
-                                            style: GoogleFonts.inter(
-                                              fontSize: r.bodyFontSize - 3,
-                                              color: const Color(
-                                                0xFF1E90FF,
-                                              ).withValues(alpha: 0.7),
-                                            ),
-                                          ),
-                                      ],
-                                    ],
-                                  ),
-                                  if (rec.description != null &&
-                                      rec.description!.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        rec.description!,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.inter(
-                                          fontSize: r.bodyFontSize - 2,
-                                          color: theme.colorScheme.onSurface
-                                              .withValues(alpha: 0.5),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                color: Colors.red,
-                                size: 20,
-                              ),
-                              onPressed: () async {
-                                if (user == null) return;
-                                await ref
-                                    .read(databaseServiceProvider)
-                                    .deleteMoney(rec.id);
-                                ref.invalidate(moneyRecordsProvider(user.id));
-                                ref.invalidate(totalSavedProvider(user.id));
-                                ref.invalidate(
-                                  totalDailyEarningsProvider(user.id),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          SizedBox(height: 40),
-        ],
-      ),
+                },
+              );
+            },
+          ),
+        SizedBox(height: 40),
+      ],
     );
+
+    if (widget.compact) {
+      return SingleChildScrollView(padding: r.pagePadding, child: content);
+    }
+    return Padding(padding: r.pagePadding, child: content);
   }
 
   double _cardWidth(BuildContext context, int cols) {
@@ -555,11 +542,7 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: Colors.white.withValues(alpha: 0.9),
-            size: r.iconSizeMedium,
-          ),
+          Icon(icon, color: Colors.white, size: r.iconSizeMedium),
           SizedBox(height: r.cardSpacing - 4),
           Text(
             value,

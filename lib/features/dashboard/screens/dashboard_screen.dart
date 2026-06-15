@@ -61,24 +61,33 @@ class DashboardScreen extends ConsumerWidget {
     return Scaffold(
       body: dashboardAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 16),
-              Text(
-                'Error al cargar datos',
-                style: GoogleFonts.inter(fontSize: r.bodyFontSize),
+        error: (e, _) => Builder(
+          builder: (ctx) {
+            final theme2 = Theme.of(ctx);
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: theme2.colorScheme.error,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error al cargar datos',
+                    style: GoogleFonts.inter(fontSize: r.bodyFontSize),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () =>
+                        ref.read(dashboardProvider.notifier).loadDashboard(),
+                    child: const Text('Reintentar'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () =>
-                    ref.read(dashboardProvider.notifier).loadDashboard(),
-                child: const Text('Reintentar'),
-              ),
-            ],
-          ),
+            );
+          },
         ),
         data: (data) =>
             _DashboardContent(data: data, userId: data.profile.id, r: r),
@@ -125,6 +134,7 @@ class _DashboardContent extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context, ThemeData theme) {
+    final neon = theme.colorScheme.primary;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -144,7 +154,7 @@ class _DashboardContent extends StatelessWidget {
               children: [
                 Icon(
                   Icons.local_fire_department,
-                  color: Colors.orange,
+                  color: neon,
                   size: r.iconSizeMedium,
                 ),
                 const SizedBox(width: 4),
@@ -179,6 +189,7 @@ class _DashboardContent extends StatelessWidget {
   }
 
   Widget _buildStatsRow(BuildContext context, ThemeData theme) {
+    final neon = theme.colorScheme.primary;
     final items = [
       _StatData(Icons.star, '${data.totalXp}', 'XP', theme.colorScheme.primary),
       _StatData(
@@ -191,7 +202,7 @@ class _DashboardContent extends StatelessWidget {
         Icons.local_fire_department,
         '${data.profile.streak}',
         'Dias',
-        Colors.orange,
+        neon,
       ),
     ];
 
@@ -221,11 +232,11 @@ class _DashboardContent extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(r.cardSpacing + 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(r.borderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: theme.colorScheme.primary.withValues(alpha: 0.08),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -269,7 +280,7 @@ class _DashboardContent extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(r.isDesktop ? 48 : 32),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(r.borderRadius),
             ),
             child: Center(
@@ -278,7 +289,7 @@ class _DashboardContent extends StatelessWidget {
                   Icon(
                     Icons.folder_open,
                     size: r.iconSizeLarge,
-                    color: Colors.grey,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                   ),
                   SizedBox(height: r.cardSpacing),
                   Text(
@@ -337,17 +348,18 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final neon = theme.colorScheme.primary;
     return Container(
       padding: EdgeInsets.symmetric(
         vertical: r.isDesktop ? 20 : 16,
         horizontal: r.isDesktop ? 16 : 12,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(r.borderRadius - 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: neon.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -399,7 +411,7 @@ class _CategoryTile extends StatelessWidget {
     final theme = Theme.of(context);
     final color = _parseColor(category.colorHex);
     return Material(
-      color: Colors.white,
+      color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(r.borderRadius - 2),
       child: InkWell(
         onTap: onTap,
@@ -532,7 +544,11 @@ class _WeeklyChart extends StatelessWidget {
                         fontWeight: isToday
                             ? FontWeight.bold
                             : FontWeight.normal,
-                        color: isToday ? Colors.white : Colors.grey,
+                        color: isToday
+                            ? theme.colorScheme.onPrimary
+                            : theme.colorScheme.onSurface.withValues(
+                                alpha: 0.4,
+                              ),
                       ),
                     ),
                   ),

@@ -26,24 +26,16 @@ final relapseTypes = const [
   'Otro',
 ];
 
-final _typeColors = [
-  Colors.indigo.shade400,
-  Colors.red.shade400,
-  Colors.orange.shade400,
-  Colors.purple.shade400,
-  Colors.blue.shade400,
-  Colors.teal.shade400,
-  Colors.pink.shade400,
-  Colors.grey.shade500,
-];
-
-final _pieColors = _typeColors;
+Color _typeColor(int i, Color neon) {
+  // Tonos de azul neon, variando opacidad
+  final alphas = [1.0, 0.85, 0.7, 0.55, 0.45, 0.35, 0.25, 0.15];
+  return neon.withValues(alpha: alphas[i % alphas.length]);
+}
 
 class _Milestone {
   final String label;
   final String emoji;
   final Duration duration;
-
   const _Milestone(this.label, this.emoji, this.duration);
 }
 
@@ -195,7 +187,6 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
     }
   }
 
-  /// Agrupa registros por tipo y devuelve para cada tipo su ultima recaida
   Map<String, _TypeSummary> _groupByType(List<RelapseRecord> records) {
     final map = <String, _TypeSummary>{};
     for (final r in records) {
@@ -240,6 +231,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
     final theme = Theme.of(context);
     final userData = user;
     final r = ResponsiveHelper(context);
+    final neon = theme.colorScheme.primary;
 
     return SingleChildScrollView(
       padding: r.pagePadding,
@@ -277,7 +269,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                     padding: EdgeInsets.all(r.isDesktop ? 48 : 36),
                     margin: EdgeInsets.only(bottom: r.cardSpacing + 4),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: theme.colorScheme.surface,
                       borderRadius: BorderRadius.circular(r.borderRadius),
                     ),
                     child: Center(
@@ -286,7 +278,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                           Icon(
                             Icons.check_circle_outline,
                             size: r.iconSizeLarge,
-                            color: Colors.green,
+                            color: neon,
                           ),
                           SizedBox(height: r.cardSpacing),
                           Text(
@@ -315,8 +307,8 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                   );
                 }
 
-                // Total global
                 final totalRelapses = records.length;
+                final neonBg = neon.withValues(alpha: 0.9);
 
                 return Column(
                   children: [
@@ -326,12 +318,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                       padding: EdgeInsets.all(r.cardSpacing + 4),
                       margin: EdgeInsets.only(bottom: r.cardSpacing + 4),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            theme.colorScheme.primary.withValues(alpha: 0.9),
-                            theme.colorScheme.primary,
-                          ],
-                        ),
+                        gradient: LinearGradient(colors: [neonBg, neon]),
                         borderRadius: BorderRadius.circular(r.borderRadius),
                       ),
                       child: Column(
@@ -364,15 +351,14 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                       ),
                     ),
 
-                    // --- Trackers por tipo de adiccion ---
+                    // --- Trackers por tipo ---
                     ...typeKeys.map((type) {
                       final summary = grouped[type]!;
                       final elapsed = _now.difference(summary.lastDate);
                       final colorIdx = relapseTypes.contains(type)
                           ? relapseTypes.indexOf(type)
                           : typeKeys.indexOf(type);
-                      final accentColor =
-                          _typeColors[colorIdx % _typeColors.length];
+                      final accentColor = _typeColor(colorIdx, neon);
 
                       return _TypeTrackerCard(
                         typeName: type,
@@ -381,6 +367,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                         totalCount: summary.totalCount,
                         accentColor: accentColor,
                         now: _now,
+                        neon: neon,
                         onDelete: () => _deleteRecords(userData, type, records),
                       );
                     }),
@@ -402,11 +389,11 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                 return Container(
                   padding: EdgeInsets.all(r.cardSpacing + 4),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(r.borderRadius),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
+                        color: neon.withValues(alpha: 0.06),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -438,8 +425,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                                           .toDouble();
                                       return PieChartSectionData(
                                         value: value,
-                                        color:
-                                            _pieColors[i % _pieColors.length],
+                                        color: _typeColor(i, neon),
                                         radius: 55,
                                         titleStyle: GoogleFonts.outfit(
                                           fontSize: 11,
@@ -475,9 +461,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                                           width: 10,
                                           height: 10,
                                           decoration: BoxDecoration(
-                                            color:
-                                                _pieColors[idx %
-                                                    _pieColors.length],
+                                            color: _typeColor(idx, neon),
                                             shape: BoxShape.circle,
                                           ),
                                         ),
@@ -524,14 +508,14 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                 horizontal: r.isDesktop ? 20 : 16,
               ),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                color: neon.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(r.borderRadius - 2),
               ),
               child: Row(
                 children: [
                   Icon(
                     _showForm ? Icons.expand_less : Icons.expand_more,
-                    color: theme.colorScheme.primary,
+                    color: neon,
                     size: r.iconSizeMedium,
                   ),
                   const SizedBox(width: 8),
@@ -540,7 +524,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                     style: GoogleFonts.inter(
                       fontSize: r.bodyFontSize,
                       fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.primary,
+                      color: neon,
                     ),
                   ),
                 ],
@@ -549,17 +533,17 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
           ),
           if (_showForm) ...[
             SizedBox(height: r.cardSpacing),
-            _buildForm(theme, r),
+            _buildForm(theme, r, neon),
           ],
 
           const SizedBox(height: 28),
 
-          // --- Historial ---
           if (recordsAsync != null)
             recordsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
-              data: (records) => _buildHistory(theme, userData, records, r),
+              data: (records) =>
+                  _buildHistory(theme, userData, records, r, neon),
             ),
 
           const SizedBox(height: 40),
@@ -587,15 +571,15 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
     ref.invalidate(relapseRecordsProvider(userData.id));
   }
 
-  Widget _buildForm(ThemeData theme, ResponsiveHelper r) {
+  Widget _buildForm(ThemeData theme, ResponsiveHelper r, Color neon) {
     return Container(
       padding: EdgeInsets.all(r.cardSpacing + 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(r.borderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: neon.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -691,12 +675,12 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
             child: ElevatedButton.icon(
               onPressed: _saving ? null : _save,
               icon: _saving
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: theme.colorScheme.onPrimary,
                       ),
                     )
                   : const Icon(Icons.save),
@@ -713,6 +697,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
     dynamic userData,
     List<RelapseRecord> records,
     ResponsiveHelper r,
+    Color neon,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -741,7 +726,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
           Container(
             padding: EdgeInsets.all(r.isDesktop ? 48 : 36),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(r.borderRadius),
             ),
             child: Center(
@@ -750,7 +735,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                   Icon(
                     Icons.check_circle_outline,
                     size: r.iconSizeLarge,
-                    color: Colors.green,
+                    color: neon,
                   ),
                   SizedBox(height: r.cardSpacing),
                   Text(
@@ -774,7 +759,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
             itemBuilder: (context, index) {
               final rec = records[index];
               return Material(
-                color: Colors.white,
+                color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(r.borderRadius - 2),
                 child: Padding(
                   padding: EdgeInsets.all(r.cardSpacing),
@@ -784,12 +769,12 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                         width: r.isDesktop ? 52 : 48,
                         height: r.isDesktop ? 52 : 48,
                         decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.1),
+                          color: neon.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
                           Icons.warning_rounded,
-                          color: Colors.red,
+                          color: neon,
                           size: r.iconSizeMedium,
                         ),
                       ),
@@ -837,7 +822,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                       IconButton(
                         icon: Icon(
                           Icons.delete_outline,
-                          color: Colors.red,
+                          color: neon,
                           size: r.iconSizeMedium - 2,
                         ),
                         onPressed: () async {
@@ -860,14 +845,13 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
 }
 
 // ============================================================
-// Widget: Tarjeta de tracker por tipo de adiccion
-// ============================================================
 class _TypeTrackerCard extends StatelessWidget {
   final String typeName;
   final DateTime lastDate;
   final Duration elapsed;
   final int totalCount;
   final Color accentColor;
+  final Color neon;
   final DateTime now;
   final VoidCallback onDelete;
 
@@ -877,6 +861,7 @@ class _TypeTrackerCard extends StatelessWidget {
     required this.elapsed,
     required this.totalCount,
     required this.accentColor,
+    required this.neon,
     required this.now,
     required this.onDelete,
   });
@@ -892,7 +877,7 @@ class _TypeTrackerCard extends StatelessWidget {
       margin: EdgeInsets.only(bottom: r.cardSpacing),
       padding: EdgeInsets.all(r.cardSpacing + 2),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(r.borderRadius),
         border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1),
         boxShadow: [
@@ -906,7 +891,6 @@ class _TypeTrackerCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- Cabecera del tipo ---
           Row(
             children: [
               Container(
@@ -950,20 +934,13 @@ class _TypeTrackerCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: Icon(
-                  Icons.delete_outline,
-                  color: Colors.red.shade300,
-                  size: 20,
-                ),
+                icon: Icon(Icons.delete_outline, color: neon, size: 20),
                 onPressed: onDelete,
                 tooltip: 'Eliminar historial de $typeName',
               ),
             ],
           ),
-
           SizedBox(height: r.cardSpacing),
-
-          // --- Contador de tiempo sin recaer ---
           Row(
             children: [
               Expanded(
@@ -1033,10 +1010,7 @@ class _TypeTrackerCard extends StatelessWidget {
               ),
             ],
           ),
-
           SizedBox(height: r.cardSpacing),
-
-          // --- Barras de milestones para este tipo ---
           ..._milestones.map((m) {
             final progress =
                 (elapsed.inMilliseconds / m.duration.inMilliseconds).clamp(
@@ -1044,7 +1018,7 @@ class _TypeTrackerCard extends StatelessWidget {
                   1.0,
                 );
             final completed = progress >= 1.0;
-            final barColor = completed ? const Color(0xFF228B22) : accentColor;
+            final barColor = completed ? neon : accentColor;
 
             return Padding(
               padding: EdgeInsets.only(bottom: r.cardSpacing - 4),
@@ -1069,7 +1043,7 @@ class _TypeTrackerCard extends StatelessWidget {
                                   ? FontWeight.w700
                                   : FontWeight.w500,
                               color: completed
-                                  ? const Color(0xFF228B22)
+                                  ? neon
                                   : theme.colorScheme.onSurface.withValues(
                                       alpha: 0.7,
                                     ),
@@ -1106,10 +1080,7 @@ class _TypeTrackerCard extends StatelessWidget {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: completed
-                                      ? [
-                                          const Color(0xFF228B22),
-                                          const Color(0xFF2E7D32),
-                                        ]
+                                      ? [neon, neon]
                                       : [barColor, barColor],
                                 ),
                               ),
@@ -1129,9 +1100,6 @@ class _TypeTrackerCard extends StatelessWidget {
   }
 }
 
-// ============================================================
-// Modelo interno para agrupar
-// ============================================================
 class _TypeSummary {
   final String key;
   final DateTime lastDate;

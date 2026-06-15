@@ -8,6 +8,8 @@ import '../../models/relapse_record.dart';
 import '../../models/money_record.dart';
 import '../../models/fixed_expense.dart';
 import '../../models/salary_setting.dart';
+import '../../models/debt.dart';
+import '../../models/health_record.dart';
 import 'supabase_service.dart';
 
 final databaseServiceProvider = Provider<DatabaseService>((ref) {
@@ -318,5 +320,127 @@ class DatabaseService {
 
   Future<void> upsertSalary(SalarySetting salary) async {
     await _client.from('salary_settings').upsert(salary.toJson());
+  }
+
+  // ============================================================
+  // Deudas y pagos
+  // ============================================================
+  Future<List<Debt>> getDebts(String userId) async {
+    try {
+      final data = await _client
+          .from('debts')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      return data.map((e) => Debt.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<Debt?> getDebt(String debtId) async {
+    try {
+      final data = await _client
+          .from('debts')
+          .select()
+          .eq('id', debtId)
+          .maybeSingle();
+      if (data == null) return null;
+      return Debt.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> insertDebt(Debt debt) async {
+    await _client.from('debts').insert(debt.toJson());
+  }
+
+  Future<void> updateDebt(Debt debt) async {
+    await _client.from('debts').update(debt.toJson()).eq('id', debt.id);
+  }
+
+  Future<void> deleteDebt(String id) async {
+    await _client.from('debts').delete().eq('id', id);
+  }
+
+  Future<List<DebtPayment>> getDebtPayments(String debtId) async {
+    try {
+      final data = await _client
+          .from('debt_payments')
+          .select()
+          .eq('debt_id', debtId)
+          .order('payment_date', ascending: false);
+      return data.map((e) => DebtPayment.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> insertDebtPayment(DebtPayment payment) async {
+    await _client.from('debt_payments').insert(payment.toJson());
+  }
+
+  Future<void> deleteDebtPayment(String id) async {
+    await _client.from('debt_payments').delete().eq('id', id);
+  }
+
+  // ============================================================
+  // Salud / Deporte
+  // ============================================================
+  Future<List<HealthRecord>> getHealthRecords(String userId) async {
+    try {
+      final data = await _client
+          .from('health_records')
+          .select()
+          .eq('user_id', userId)
+          .order('record_date', ascending: false);
+      return data.map((e) => HealthRecord.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> insertHealthRecord(HealthRecord record) async {
+    await _client.from('health_records').insert(record.toJson());
+  }
+
+  Future<void> deleteHealthRecord(String id) async {
+    await _client.from('health_records').delete().eq('id', id);
+  }
+
+  Future<int> getTotalSteps(String userId) async {
+    try {
+      final data = await _client
+          .from('health_records')
+          .select('steps')
+          .eq('user_id', userId);
+      int total = 0;
+      for (final item in data) {
+        total += (item['steps'] as num?)?.toInt() ?? 0;
+      }
+      return total;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<double> getAvgSteps(String userId, {int days = 7}) async {
+    try {
+      final cutoff = DateTime.now().subtract(Duration(days: days));
+      final data = await _client
+          .from('health_records')
+          .select('steps')
+          .eq('user_id', userId)
+          .gte('record_date', cutoff.toUtc().toIso8601String());
+      if (data.isEmpty) return 0;
+      int total = 0;
+      for (final item in data) {
+        total += (item['steps'] as num?)?.toInt() ?? 0;
+      }
+      return total / data.length;
+    } catch (_) {
+      return 0;
+    }
   }
 }

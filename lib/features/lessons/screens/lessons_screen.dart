@@ -46,7 +46,11 @@ class LessonsScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
+              ),
               SizedBox(height: r.cardSpacing),
               Text('Error: $e'),
               SizedBox(height: 8),
@@ -66,7 +70,7 @@ class LessonsScreen extends ConsumerWidget {
                   Icon(
                     Icons.school_outlined,
                     size: r.iconSizeLarge,
-                    color: Colors.grey,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                   ),
                   SizedBox(height: r.cardSpacing),
                   Text(
@@ -114,23 +118,22 @@ class _LessonCard extends StatelessWidget {
     3 => 'Avanzado',
     _ => 'Basico',
   };
-  Color _difficultyColor(int level) => switch (level) {
-    1 => const Color(0xFF4CAF50),
-    2 => Colors.orange,
-    3 => Colors.red,
-    _ => Colors.grey,
+  Color _difficultyColor(int level, Color neon) => switch (level) {
+    1 => neon,
+    2 => neon.withValues(alpha: 0.7),
+    3 => neon.withValues(alpha: 0.4),
+    _ => neon.withValues(alpha: 0.2),
   };
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final neon = theme.colorScheme.primary;
     return Card(
       margin: EdgeInsets.only(bottom: r.cardSpacing - 2),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(r.borderRadius),
       ),
-      elevation: 0,
-      color: Colors.white,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(r.borderRadius),
@@ -187,6 +190,7 @@ class _LessonCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: _difficultyColor(
                     lesson.difficultyLevel,
+                    neon,
                   ).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -195,7 +199,7 @@ class _LessonCard extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: _difficultyColor(lesson.difficultyLevel),
+                    color: _difficultyColor(lesson.difficultyLevel, neon),
                   ),
                 ),
               ),

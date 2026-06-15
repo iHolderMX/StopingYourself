@@ -332,3 +332,66 @@ CREATE POLICY "Insertar salario propio" ON public.salary_settings
 DROP POLICY IF EXISTS "Actualizar salario propio" ON public.salary_settings;
 CREATE POLICY "Actualizar salario propio" ON public.salary_settings
   FOR UPDATE USING (auth.uid() = user_id);
+
+-- ============================================================
+-- 9. Tablas de deudas y pagos
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.debts (
+  id TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL DEFAULT 'Deuda',
+  debt_type TEXT NOT NULL DEFAULT 'otro',
+  linked_to TEXT NOT NULL DEFAULT 'Otro',
+  initial_amount NUMERIC(12, 2) NOT NULL,
+  current_balance NUMERIC(12, 2) NOT NULL,
+  interest_rate NUMERIC(5, 2) NOT NULL DEFAULT 0,
+  payment_period_days INTEGER NOT NULL DEFAULT 15,
+  min_payment NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  grace_period_days INTEGER NOT NULL DEFAULT 30,
+  start_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.debts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Ver deudas propias" ON public.debts;
+CREATE POLICY "Ver deudas propias" ON public.debts
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Insertar deuda propia" ON public.debts;
+CREATE POLICY "Insertar deuda propia" ON public.debts
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Actualizar deuda propia" ON public.debts;
+CREATE POLICY "Actualizar deuda propia" ON public.debts
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Eliminar deuda propia" ON public.debts;
+CREATE POLICY "Eliminar deuda propia" ON public.debts
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE TABLE IF NOT EXISTS public.debt_payments (
+  id TEXT PRIMARY KEY,
+  debt_id TEXT NOT NULL REFERENCES public.debts(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  amount NUMERIC(10, 2) NOT NULL,
+  payment_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.debt_payments ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Ver pagos propios" ON public.debt_payments;
+CREATE POLICY "Ver pagos propios" ON public.debt_payments
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Insertar pago propio" ON public.debt_payments;
+CREATE POLICY "Insertar pago propio" ON public.debt_payments
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Eliminar pago propio" ON public.debt_payments;
+CREATE POLICY "Eliminar pago propio" ON public.debt_payments
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_debts_user_id ON public.debts(user_id);
+CREATE INDEX IF NOT EXISTS idx_debt_payments_debt_id ON public.debt_payments(debt_id);

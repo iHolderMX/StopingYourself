@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/responsive_helper.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -23,6 +22,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       '/lessons-shell',
       '/relapse',
       '/money',
+      '/health',
       '/profile',
     ];
     context.go(routes[index]);
@@ -75,7 +75,7 @@ class _DesktopLayout extends StatelessWidget {
           NavigationRail(
             selectedIndex: selectedIndex,
             onDestinationSelected: onSelect,
-            backgroundColor: Colors.white,
+            backgroundColor: theme.colorScheme.surface,
             indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.15),
             labelType: NavigationRailLabelType.all,
             minWidth: 80,
@@ -84,7 +84,7 @@ class _DesktopLayout extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Icon(
                 Icons.shield_outlined,
-                color: AppTheme.goldAccent,
+                color: theme.colorScheme.primary,
                 size: 36,
               ),
             ),
@@ -108,6 +108,11 @@ class _DesktopLayout extends StatelessWidget {
                 icon: Icon(Icons.savings_outlined),
                 selectedIcon: Icon(Icons.savings_rounded),
                 label: Text('Finanzas'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.fitness_center_outlined),
+                selectedIcon: Icon(Icons.fitness_center),
+                label: Text('Salud'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.person_outline),
@@ -166,6 +171,11 @@ class _MobileLayout extends StatelessWidget {
             icon: Icon(Icons.savings_outlined),
             selectedIcon: Icon(Icons.savings_rounded),
             label: 'Finanzas',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.fitness_center_outlined),
+            selectedIcon: Icon(Icons.fitness_center),
+            label: 'Salud',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

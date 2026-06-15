@@ -62,44 +62,36 @@ class _SalarySummaryCardState extends ConsumerState<SalarySummaryCard> {
     final salary = salaryAsync?.asData?.value?.monthlySalary ?? 0;
     final theme = Theme.of(context);
     final r = ResponsiveHelper(context);
-
     final hasSalary = salary > 0;
+
+    final neon = theme.colorScheme.primary;
+    final neonDim = theme.colorScheme.tertiary;
 
     return Container(
       margin: EdgeInsets.only(bottom: r.cardSpacing + 6),
       padding: EdgeInsets.all(r.cardSpacing + 4),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color(0xFF1A237E).withValues(alpha: 0.04),
-            const Color(0xFF0D47A1).withValues(alpha: 0.02),
-          ],
+          colors: [neon.withValues(alpha: 0.06), neon.withValues(alpha: 0.02)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(r.borderRadius + 4),
-        border: Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.15),
-        ),
+        border: Border.all(color: neon.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Salario + boton editar
           Row(
             children: [
-              Icon(
-                Icons.work_outline,
-                color: const Color(0xFF1A237E),
-                size: r.iconSizeMedium - 2,
-              ),
+              Icon(Icons.work_outline, color: neon, size: r.iconSizeMedium - 2),
               const SizedBox(width: 10),
               Text(
                 'Salario Mensual',
                 style: GoogleFonts.outfit(
                   fontSize: r.subtitleFontSize + 2,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1A237E),
+                  color: neon,
                 ),
               ),
               const Spacer(),
@@ -115,11 +107,7 @@ class _SalarySummaryCardState extends ConsumerState<SalarySummaryCard> {
                 ),
               ] else
                 IconButton(
-                  icon: Icon(
-                    Icons.edit_outlined,
-                    color: theme.colorScheme.primary,
-                    size: 20,
-                  ),
+                  icon: Icon(Icons.edit_outlined, color: neon, size: 20),
                   onPressed: () {
                     _salaryController.text = hasSalary
                         ? salary.toStringAsFixed(0)
@@ -130,8 +118,6 @@ class _SalarySummaryCardState extends ConsumerState<SalarySummaryCard> {
                 ),
             ],
           ),
-
-          // Formulario de edicion
           if (_editing) ...[
             const SizedBox(height: 12),
             TextField(
@@ -149,38 +135,31 @@ class _SalarySummaryCardState extends ConsumerState<SalarySummaryCard> {
               onSubmitted: (_) => _saveSalary(),
             ),
           ],
-
           if (!_editing) ...[
             SizedBox(height: r.cardSpacing - 4),
             if (!hasSalary)
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.1),
+                  color: neon.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
                     const SizedBox(width: 12),
-                    const Icon(
-                      Icons.info_outline,
-                      color: Colors.amber,
-                      size: 20,
-                    ),
+                    Icon(Icons.info_outline, color: neon, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       'Configura tu salario para ver las metricas',
                       style: GoogleFonts.inter(
                         fontSize: r.bodyFontSize - 1,
-                        color: Colors.amber[800],
+                        color: neon,
                       ),
                     ),
                   ],
                 ),
               ),
-
             if (hasSalary) ...[
-              // Fila de cards con metricas
               SizedBox(height: r.cardSpacing),
               Wrap(
                 spacing: r.cardSpacing - 4,
@@ -192,7 +171,7 @@ class _SalarySummaryCardState extends ConsumerState<SalarySummaryCard> {
                     value: '\$${widget.totalSaved.toStringAsFixed(2)}',
                     sub:
                         '${(widget.totalSaved / salary * 100).toStringAsFixed(1)}% de tu salario',
-                    color: const Color(0xFF228B22),
+                    color: neon,
                     r: r,
                   ),
                   _MetricTile(
@@ -204,7 +183,7 @@ class _SalarySummaryCardState extends ConsumerState<SalarySummaryCard> {
                     sub: salary > 0
                         ? '${(widget.totalSaved / salary).toStringAsFixed(1)} meses de salario'
                         : '-',
-                    color: const Color(0xFF388E3C),
+                    color: neonDim,
                     r: r,
                   ),
                   _MetricTile(
@@ -214,7 +193,7 @@ class _SalarySummaryCardState extends ConsumerState<SalarySummaryCard> {
                     sub: salary > 0
                         ? 'Equivale a ${(widget.totalDailyEarnings / (salary / 30) * 100).toStringAsFixed(2)}% de 1 dia de salario'
                         : '-',
-                    color: const Color(0xFF1E90FF),
+                    color: neon,
                     r: r,
                   ),
                   _MetricTile(
@@ -224,7 +203,7 @@ class _SalarySummaryCardState extends ConsumerState<SalarySummaryCard> {
                     sub: salary > 0
                         ? '${(widget.totalFixedExpenses / salary * 100).toStringAsFixed(1)}% de tu salario'
                         : '-',
-                    color: const Color(0xFFE53935),
+                    color: neonDim,
                     r: r,
                   ),
                   _MetricTile(
@@ -233,7 +212,7 @@ class _SalarySummaryCardState extends ConsumerState<SalarySummaryCard> {
                     value:
                         '\$${(salary - widget.totalFixedExpenses).toStringAsFixed(2)}',
                     sub: salary > 0 ? 'Despues de gastos fijos' : '-',
-                    color: const Color(0xFF7B1FA2),
+                    color: neon,
                     r: r,
                   ),
                   _MetricTile(
@@ -242,7 +221,7 @@ class _SalarySummaryCardState extends ConsumerState<SalarySummaryCard> {
                     value:
                         '${(widget.totalSaved / salary * 100).toStringAsFixed(1)}%',
                     sub: 'De tu salario anual',
-                    color: const Color(0xFF00838F),
+                    color: neonDim,
                     r: r,
                   ),
                 ],
@@ -274,12 +253,13 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       width: r.isDesktop ? 200 : (r.isTablet ? 170 : null),
       constraints: const BoxConstraints(minWidth: 140),
       padding: EdgeInsets.all(r.cardSpacing),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(r.borderRadius - 2),
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
@@ -302,7 +282,7 @@ class _MetricTile extends StatelessWidget {
             style: GoogleFonts.inter(
               fontSize: r.bodyFontSize - 2,
               fontWeight: FontWeight.w500,
-              color: Colors.grey[800],
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 2),
@@ -310,7 +290,7 @@ class _MetricTile extends StatelessWidget {
             sub,
             style: GoogleFonts.inter(
               fontSize: r.bodyFontSize - 3,
-              color: Colors.grey[500],
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
         ],

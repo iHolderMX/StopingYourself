@@ -22,7 +22,9 @@ class StopingYourselfApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'StopingYourself',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.darkTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.dark,
       routerConfig: router,
     );
   }
