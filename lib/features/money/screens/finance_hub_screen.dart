@@ -8,6 +8,7 @@ import 'fixed_expenses_content.dart';
 import 'salary_summary_card.dart';
 import 'finance_charts.dart';
 import 'debts_content.dart';
+import 'saving_goals_content.dart';
 
 // Aliases para providers de otras pantallas
 import 'money_tracking_screen.dart' as money;
@@ -30,7 +31,7 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -153,6 +154,8 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
                     SizedBox(width: r.cardSpacing),
                     Expanded(child: DebtsContent(totalSaved: saved)),
                     SizedBox(width: r.cardSpacing),
+                    const Expanded(child: SavingGoalsContent()),
+                    SizedBox(width: r.cardSpacing),
                     Expanded(child: charts),
                   ],
                 ),
@@ -173,6 +176,8 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
                     const FixedExpensesContent(compact: false),
                     SizedBox(height: r.cardSpacing + 12),
                     DebtsContent(compact: false, totalSaved: saved),
+                    SizedBox(height: r.cardSpacing + 12),
+                    const SavingGoalsContent(compact: false),
                     SizedBox(height: r.cardSpacing + 12),
                     charts,
                   ],
@@ -244,6 +249,7 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
                 Tab(icon: Icon(Icons.savings_outlined), text: 'Ahorros'),
                 Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Gastos'),
                 Tab(icon: Icon(Icons.account_balance_outlined), text: 'Deudas'),
+                Tab(icon: Icon(Icons.star_outline), text: 'Metas'),
                 Tab(icon: Icon(Icons.bar_chart_outlined), text: 'Graficas'),
               ],
             ),
@@ -255,6 +261,7 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
                 const MoneyTrackingScreen(),
                 const FixedExpensesContent(),
                 DebtsContent(totalSaved: saved),
+                const SavingGoalsContent(),
                 SingleChildScrollView(
                   padding: EdgeInsets.symmetric(
                     horizontal: r.padHorizontal,
@@ -276,6 +283,8 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
                   const FixedExpensesContent(compact: false),
                   SizedBox(height: r.cardSpacing + 8),
                   DebtsContent(compact: false, totalSaved: saved),
+                  SizedBox(height: r.cardSpacing + 8),
+                  const SavingGoalsContent(compact: false),
                   SizedBox(height: r.cardSpacing + 8),
                   charts,
                 ],

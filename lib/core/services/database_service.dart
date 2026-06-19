@@ -11,6 +11,7 @@ import '../../models/salary_setting.dart';
 import '../../models/debt.dart';
 import '../../models/health_record.dart';
 import '../../models/daily_activity.dart';
+import '../../models/saving_goal.dart';
 import 'supabase_service.dart';
 
 final databaseServiceProvider = Provider<DatabaseService>((ref) {
@@ -484,5 +485,33 @@ class DatabaseService {
 
   Future<void> deleteDailyActivity(String id) async {
     await _client.from('daily_activities').delete().eq('id', id);
+  }
+
+  // ============================================================
+  // Metas de ahorro
+  // ============================================================
+  Future<List<SavingGoal>> getSavingGoals(String userId) async {
+    try {
+      final data = await _client
+          .from('saving_goals')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      return data.map((e) => SavingGoal.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> insertSavingGoal(SavingGoal goal) async {
+    await _client.from('saving_goals').insert(goal.toJson());
+  }
+
+  Future<void> updateSavingGoal(SavingGoal goal) async {
+    await _client.from('saving_goals').update(goal.toJson()).eq('id', goal.id);
+  }
+
+  Future<void> deleteSavingGoal(String id) async {
+    await _client.from('saving_goals').delete().eq('id', id);
   }
 }

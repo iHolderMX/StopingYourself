@@ -395,3 +395,98 @@ CREATE POLICY "Eliminar pago propio" ON public.debt_payments
 
 CREATE INDEX IF NOT EXISTS idx_debts_user_id ON public.debts(user_id);
 CREATE INDEX IF NOT EXISTS idx_debt_payments_debt_id ON public.debt_payments(debt_id);
+
+-- ============================================================
+-- 10. Tabla de salud / deporte
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.health_records (
+  id TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  steps INTEGER NOT NULL DEFAULT 0,
+  record_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.health_records ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Ver salud propia" ON public.health_records;
+CREATE POLICY "Ver salud propia" ON public.health_records
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Insertar salud propia" ON public.health_records;
+CREATE POLICY "Insertar salud propia" ON public.health_records
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Eliminar salud propia" ON public.health_records;
+CREATE POLICY "Eliminar salud propia" ON public.health_records
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_health_records_user_id ON public.health_records(user_id);
+
+-- ============================================================
+-- 11. Tabla de actividades diarias
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.daily_activities (
+  id TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  is_completed BOOLEAN NOT NULL DEFAULT false,
+  scheduled_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.daily_activities ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Ver actividades propias" ON public.daily_activities;
+CREATE POLICY "Ver actividades propias" ON public.daily_activities
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Insertar actividad propia" ON public.daily_activities;
+CREATE POLICY "Insertar actividad propia" ON public.daily_activities
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Actualizar actividad propia" ON public.daily_activities;
+CREATE POLICY "Actualizar actividad propia" ON public.daily_activities
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Eliminar actividad propia" ON public.daily_activities;
+CREATE POLICY "Eliminar actividad propia" ON public.daily_activities
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_daily_activities_user_id ON public.daily_activities(user_id);
+
+-- ============================================================
+-- 12. Tabla de metas de ahorro
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.saving_goals (
+  id TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  target_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  current_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  url TEXT,
+  is_completed BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.saving_goals ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Ver metas propias" ON public.saving_goals;
+CREATE POLICY "Ver metas propias" ON public.saving_goals
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Insertar meta propia" ON public.saving_goals;
+CREATE POLICY "Insertar meta propia" ON public.saving_goals
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Actualizar meta propia" ON public.saving_goals;
+CREATE POLICY "Actualizar meta propia" ON public.saving_goals
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Eliminar meta propia" ON public.saving_goals;
+CREATE POLICY "Eliminar meta propia" ON public.saving_goals
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_saving_goals_user_id ON public.saving_goals(user_id);
