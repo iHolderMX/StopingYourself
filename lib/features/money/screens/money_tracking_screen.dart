@@ -216,19 +216,56 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
                 ),
               ),
               SizedBox(height: r.cardSpacing),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedType,
-                decoration: const InputDecoration(
-                  labelText: 'Tipo',
-                  prefixIcon: Icon(Icons.category_outlined),
-                ),
-                items: moneyTypes
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) setState(() => _selectedType = v);
-                },
-              ),
+              Builder(builder: (ctx) {
+                final tt = Theme.of(ctx);
+                return InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo',
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                  child: PopupMenuButton<String>(
+                    initialValue: _selectedType,
+                    onSelected: (v) => setState(() => _selectedType = v),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(_selectedType,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                color: tt.colorScheme.onSurface,
+                              )),
+                        ),
+                        Icon(Icons.arrow_drop_down, color: tt.colorScheme.primary),
+                      ],
+                    ),
+                    itemBuilder: (_) => moneyTypes
+                        .map((t) => PopupMenuItem(
+                              value: t,
+                              child: Row(
+                                children: [
+                                  if (t == _selectedType)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: Icon(Icons.check, size: 18,
+                                          color: tt.colorScheme.primary),
+                                    )
+                                  else
+                                    const SizedBox(width: 26),
+                                  Text(t,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 15,
+                                        fontWeight: t == _selectedType
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                        color: tt.colorScheme.onSurface,
+                                      )),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                );
+              }),
               SizedBox(height: r.cardSpacing - 4),
               TextField(
                 controller: _amountController,

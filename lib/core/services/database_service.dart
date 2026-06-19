@@ -10,6 +10,7 @@ import '../../models/fixed_expense.dart';
 import '../../models/salary_setting.dart';
 import '../../models/debt.dart';
 import '../../models/health_record.dart';
+import '../../models/daily_activity.dart';
 import 'supabase_service.dart';
 
 final databaseServiceProvider = Provider<DatabaseService>((ref) {
@@ -442,5 +443,46 @@ class DatabaseService {
     } catch (_) {
       return 0;
     }
+  }
+
+  // ============================================================
+  // Actividades diarias
+  // ============================================================
+  Future<List<DailyActivity>> getDailyActivities(
+    String userId, {
+    DateTime? date,
+  }) async {
+    try {
+      var query = _client
+          .from('daily_activities')
+          .select()
+          .eq('user_id', userId);
+      if (date != null) {
+        final start = DateTime(date.year, date.month, date.day);
+        final end = start.add(const Duration(days: 1));
+        query = query
+            .gte('scheduled_date', start.toUtc().toIso8601String())
+            .lt('scheduled_date', end.toUtc().toIso8601String());
+      }
+      final data = await query.order('created_at', ascending: true);
+      return data.map((e) => DailyActivity.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> insertDailyActivity(DailyActivity activity) async {
+    await _client.from('daily_activities').insert(activity.toJson());
+  }
+
+  Future<void> updateDailyActivity(DailyActivity activity) async {
+    await _client
+        .from('daily_activities')
+        .update(activity.toJson())
+        .eq('id', activity.id);
+  }
+
+  Future<void> deleteDailyActivity(String id) async {
+    await _client.from('daily_activities').delete().eq('id', id);
   }
 }

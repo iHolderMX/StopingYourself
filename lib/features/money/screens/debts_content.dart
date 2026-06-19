@@ -292,22 +292,71 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
                 ),
               ),
               SizedBox(height: r.cardSpacing - 4),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedDebtType,
-                decoration: const InputDecoration(
-                  labelText: 'Tipo de deuda',
-                  prefixIcon: Icon(Icons.category_outlined),
-                ),
-                items: Debt.debtTypes
-                    .map(
-                      (t) => DropdownMenuItem(
-                        value: t,
-                        child: Text(Debt.debtTypeLabels[t] ?? t),
+              Builder(
+                builder: (ctx) {
+                  final tt = Theme.of(ctx);
+                  final label =
+                      Debt.debtTypeLabels[_selectedDebtType] ??
+                      _selectedDebtType;
+                  return InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo de deuda',
+                      prefixIcon: Icon(Icons.category_outlined),
+                    ),
+                    child: PopupMenuButton<String>(
+                      initialValue: _selectedDebtType,
+                      onSelected: (v) => setState(() => _selectedDebtType = v),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              label,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                color: tt.colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_drop_down,
+                            color: tt.colorScheme.primary,
+                          ),
+                        ],
                       ),
-                    )
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) setState(() => _selectedDebtType = v);
+                      itemBuilder: (_) => Debt.debtTypes
+                          .map(
+                            (t) => PopupMenuItem(
+                              value: t,
+                              child: Row(
+                                children: [
+                                  if (t == _selectedDebtType)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: Icon(
+                                        Icons.check,
+                                        size: 18,
+                                        color: tt.colorScheme.primary,
+                                      ),
+                                    )
+                                  else
+                                    const SizedBox(width: 26),
+                                  Text(
+                                    Debt.debtTypeLabels[t] ?? t,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      fontWeight: t == _selectedDebtType
+                                          ? FontWeight.w600
+                                          : FontWeight.w400,
+                                      color: tt.colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  );
                 },
               ),
               SizedBox(height: r.cardSpacing - 4),
@@ -334,21 +383,61 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
                 ),
               ),
               SizedBox(height: r.cardSpacing - 4),
-              DropdownButtonFormField<int>(
-                initialValue: _periodDays,
-                decoration: const InputDecoration(
-                  labelText: 'Periodo de pago',
-                  prefixIcon: Icon(Icons.calendar_month),
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 15,
-                    child: Text('Quincenal (15 dias)'),
-                  ),
-                  DropdownMenuItem(value: 30, child: Text('Mensual (30 dias)')),
-                ],
-                onChanged: (v) {
-                  if (v != null) setState(() => _periodDays = v);
+              Builder(
+                builder: (ctx) {
+                  final tt = Theme.of(ctx);
+                  final label = _periodDays == 15
+                      ? 'Quincenal (15 dias)'
+                      : 'Mensual (30 dias)';
+                  return InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Periodo de pago',
+                      prefixIcon: Icon(Icons.calendar_month),
+                    ),
+                    child: PopupMenuButton<int>(
+                      initialValue: _periodDays,
+                      onSelected: (v) => setState(() => _periodDays = v),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              label,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                color: tt.colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_drop_down,
+                            color: tt.colorScheme.primary,
+                          ),
+                        ],
+                      ),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: 15,
+                          child: Text(
+                            'Quincenal (15 dias)',
+                            style: TextStyle(
+                              color: Color(0xFFE0E0E0),
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 30,
+                          child: Text(
+                            'Mensual (30 dias)',
+                            style: TextStyle(
+                              color: Color(0xFFE0E0E0),
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 },
               ),
               SizedBox(height: r.cardSpacing - 4),

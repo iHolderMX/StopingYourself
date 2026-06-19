@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../main.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../services/supabase_auth_service.dart';
 
@@ -133,146 +134,177 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final r = ResponsiveHelper(context);
 
     return Scaffold(
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: Center(
-            child: SingleChildScrollView(
-              padding: r.pagePadding,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: r.formMaxWidth),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Icon(
-                        Icons.shield_outlined,
-                        size: r.iconSizeLarge,
-                        color: theme.colorScheme.primary,
-                      ),
-                      SizedBox(height: r.cardSpacing),
-                      Text(
-                        'Stoping\nYourself',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.outfit(
-                          fontSize: r.titleFontSize,
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurface,
-                          height: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Cada dia, un paso mas lejos\nde lo que te detiene.',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          fontSize: r.subtitleFontSize,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.6,
+      body: Stack(
+        children: [
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: r.pagePadding,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: r.formMaxWidth),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Icon(
+                            Icons.shield_outlined,
+                            size: r.iconSizeLarge,
+                            color: theme.colorScheme.primary,
                           ),
-                        ),
-                      ),
-                      SizedBox(height: r.isDesktop ? 56 : 36),
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        autocorrect: false,
-                        decoration: const InputDecoration(
-                          labelText: 'Correo electronico',
-                          hintText: 'tu@email.com',
-                          prefixIcon: Icon(Icons.email_outlined),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty)
-                            return 'Ingresa tu correo';
-                          if (!v.contains('@')) return 'Correo invalido';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        decoration: InputDecoration(
-                          labelText: 'Contrasena',
-                          hintText: 'Minimo 6 caracteres',
-                          prefixIcon: const Icon(Icons.lock_outlined),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                            ),
-                            onPressed: () => setState(
-                              () => _obscurePassword = !_obscurePassword,
+                          SizedBox(height: r.cardSpacing),
+                          Text(
+                            'Stoping\nYourself',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.outfit(
+                              fontSize: r.titleFontSize,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                              height: 1.1,
                             ),
                           ),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.length < 6)
-                            return 'Minimo 6 caracteres';
-                          return null;
-                        },
-                      ),
-                      SizedBox(height: r.cardSpacing + 4),
-                      SizedBox(
-                        height: r.buttonHeight,
-                        child: ElevatedButton(
-                          onPressed: isLoading ? null : _handleSubmit,
-                          child: isLoading
-                              ? const SizedBox(
-                                  height: 24,
-                                  width: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Text(
-                                  isSignUp ? 'Crear cuenta' : 'Iniciar sesion',
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                        ),
-                      ),
-                      if (!isSignUp) ...[
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: isLoading ? null : _handleResetPassword,
-                          child: Text(
-                            'Olvide mi contrasena',
+                          const SizedBox(height: 12),
+                          Text(
+                            'Cada dia, un paso mas lejos\nde lo que te detiene.',
+                            textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
-                              fontSize: 13,
+                              fontSize: r.subtitleFontSize,
                               color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.5,
+                                alpha: 0.6,
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () {
-                          ref.read(isSignUpProvider.notifier).toggle();
-                          _formKey.currentState?.reset();
-                        },
-                        child: Text(
-                          isSignUp
-                              ? 'Ya tengo cuenta. Iniciar sesion'
-                              : 'No tengo cuenta. Crear una',
-                          style: GoogleFonts.inter(
-                            color: theme.colorScheme.primary,
+                          SizedBox(height: r.isDesktop ? 56 : 36),
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            autocorrect: false,
+                            decoration: const InputDecoration(
+                              labelText: 'Correo electronico',
+                              hintText: 'tu@email.com',
+                              prefixIcon: Icon(Icons.email_outlined),
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty)
+                                return 'Ingresa tu correo';
+                              if (!v.contains('@')) return 'Correo invalido';
+                              return null;
+                            },
                           ),
-                        ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: 'Contrasena',
+                              hintText: 'Minimo 6 caracteres',
+                              prefixIcon: const Icon(Icons.lock_outlined),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                              ),
+                            ),
+                            validator: (v) {
+                              if (v == null || v.length < 6)
+                                return 'Minimo 6 caracteres';
+                              return null;
+                            },
+                          ),
+                          SizedBox(height: r.cardSpacing + 4),
+                          SizedBox(
+                            height: r.buttonHeight,
+                            child: ElevatedButton(
+                              onPressed: isLoading ? null : _handleSubmit,
+                              child: isLoading
+                                  ? const SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      isSignUp
+                                          ? 'Crear cuenta'
+                                          : 'Iniciar sesion',
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                            ),
+                          ),
+                          if (!isSignUp) ...[
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: isLoading
+                                  ? null
+                                  : _handleResetPassword,
+                              child: Text(
+                                'Olvide mi contrasena',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: () {
+                              ref.read(isSignUpProvider.notifier).toggle();
+                              _formKey.currentState?.reset();
+                            },
+                            child: Text(
+                              isSignUp
+                                  ? 'Ya tengo cuenta. Iniciar sesion'
+                                  : 'No tengo cuenta. Crear una',
+                              style: GoogleFonts.inter(
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
+          // Boton toggle tema
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Material(
+              color: theme.colorScheme.surface.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => ref.read(themeModeProvider.notifier).toggle(),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Icon(
+                    theme.brightness == Brightness.dark
+                        ? Icons.light_mode_rounded
+                        : Icons.dark_mode_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

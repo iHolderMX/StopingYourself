@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../main.dart';
 import '../../../core/utils/responsive_helper.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -23,6 +24,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       '/relapse',
       '/money',
       '/health',
+      '/activities',
       '/profile',
     ];
     context.go(routes[index]);
@@ -54,7 +56,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 }
 
-class _DesktopLayout extends StatelessWidget {
+class _DesktopLayout extends ConsumerWidget {
   final ThemeData theme;
   final int selectedIndex;
   final void Function(int) onSelect;
@@ -68,7 +70,8 @@ class _DesktopLayout extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = theme.brightness == Brightness.dark;
     return Scaffold(
       body: Row(
         children: [
@@ -86,6 +89,19 @@ class _DesktopLayout extends StatelessWidget {
                 Icons.shield_outlined,
                 color: theme.colorScheme.primary,
                 size: 36,
+              ),
+            ),
+            trailing: Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: IconButton(
+                icon: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: theme.colorScheme.primary,
+                ),
+                tooltip: isDark ? 'Tema claro' : 'Tema oscuro',
+                onPressed: () {
+                  ref.read(themeModeProvider.notifier).toggle();
+                },
               ),
             ),
             destinations: const [
@@ -115,6 +131,11 @@ class _DesktopLayout extends StatelessWidget {
                 label: Text('Salud'),
               ),
               NavigationRailDestination(
+                icon: Icon(Icons.checklist_outlined),
+                selectedIcon: Icon(Icons.checklist_rounded),
+                label: Text('Tareas'),
+              ),
+              NavigationRailDestination(
                 icon: Icon(Icons.person_outline),
                 selectedIcon: Icon(Icons.person),
                 label: Text('Perfil'),
@@ -129,7 +150,7 @@ class _DesktopLayout extends StatelessWidget {
   }
 }
 
-class _MobileLayout extends StatelessWidget {
+class _MobileLayout extends ConsumerWidget {
   final ThemeData theme;
   final int selectedIndex;
   final void Function(int) onSelect;
@@ -143,9 +164,34 @@ class _MobileLayout extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = theme.brightness == Brightness.dark;
     return Scaffold(
-      body: child,
+      body: Stack(
+        children: [
+          child,
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Material(
+              color: theme.colorScheme.surface.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => ref.read(themeModeProvider.notifier).toggle(),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Icon(
+                    isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: onSelect,
@@ -176,6 +222,11 @@ class _MobileLayout extends StatelessWidget {
             icon: Icon(Icons.fitness_center_outlined),
             selectedIcon: Icon(Icons.fitness_center),
             label: 'Salud',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.checklist_outlined),
+            selectedIcon: Icon(Icons.checklist_rounded),
+            label: 'Tareas',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

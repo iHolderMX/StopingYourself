@@ -4,11 +4,20 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/services/supabase_service.dart';
 
+final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
+  ThemeModeNotifier.new,
+);
+
+class ThemeModeNotifier extends Notifier<ThemeMode> {
+  @override
+  ThemeMode build() => ThemeMode.dark;
+  void toggle() =>
+      state = state == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await initializeSupabase();
-
   runApp(const ProviderScope(child: StopingYourselfApp()));
 }
 
@@ -18,13 +27,14 @@ class StopingYourselfApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
       title: 'StopingYourself',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark,
+      themeMode: themeMode,
       routerConfig: router,
     );
   }

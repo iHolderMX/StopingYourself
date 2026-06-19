@@ -22,6 +22,18 @@ class AppTheme {
   // TEMA OSCURO (solo azul neon + negro/grises)
   // ═══════════════════════════════════════════════════════════════
   static ThemeData get darkTheme {
+    const menuStyle = MenuStyle(
+      backgroundColor: WidgetStatePropertyAll(_grey800),
+      elevation: WidgetStatePropertyAll(8),
+      shadowColor: WidgetStatePropertyAll(Color(0x3300D4FF)),
+      surfaceTintColor: WidgetStatePropertyAll(_grey800),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+    );
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
@@ -113,6 +125,45 @@ class AppTheme {
       ),
 
       iconTheme: const IconThemeData(color: _neon),
+      dropdownMenuTheme: DropdownMenuThemeData(
+        textStyle: GoogleFonts.inter(color: _textLight, fontSize: 15),
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(),
+        ),
+        menuStyle: const MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(_grey800),
+          elevation: WidgetStatePropertyAll(8),
+          shadowColor: WidgetStatePropertyAll(Color(0x3300D4FF)),
+          surfaceTintColor: WidgetStatePropertyAll(_grey800),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
+          ),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: _grey800,
+        elevation: 8,
+        shadowColor: _neon.withValues(alpha: 0.2),
+        surfaceTintColor: _grey800,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: GoogleFonts.inter(
+          color: _textLight,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      menuBarTheme: const MenuBarThemeData(style: menuStyle),
+      menuTheme: MenuThemeData(style: menuStyle),
+      menuButtonTheme: MenuButtonThemeData(
+        style: ButtonStyle(
+          foregroundColor: const WidgetStatePropertyAll(_textLight),
+          textStyle: WidgetStatePropertyAll(
+            GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
+          ),
+        ),
+      ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected) ? _neon : _grey600,

@@ -202,19 +202,58 @@ class _FixedExpensesContentState extends ConsumerState<FixedExpensesContent> {
                 ),
               ),
               SizedBox(height: r.cardSpacing),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Categoria',
-                  prefixIcon: Icon(Icons.category_outlined),
-                ),
-                items: fixedExpenseCategories
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) setState(() => _selectedCategory = v);
-                },
-              ),
+              Builder(builder: (ctx) {
+                final tt = Theme.of(ctx);
+                return InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Categoria',
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                  child: PopupMenuButton<String>(
+                    initialValue: _selectedCategory,
+                    onSelected: (v) => setState(() => _selectedCategory = v),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _selectedCategory,
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              color: tt.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.arrow_drop_down, color: tt.colorScheme.primary),
+                      ],
+                    ),
+                    itemBuilder: (_) => fixedExpenseCategories
+                        .map((c) => PopupMenuItem(
+                              value: c,
+                              child: Row(
+                                children: [
+                                  if (c == _selectedCategory)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: Icon(Icons.check, size: 18,
+                                          color: tt.colorScheme.primary),
+                                    )
+                                  else
+                                    const SizedBox(width: 26),
+                                  Text(c,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 15,
+                                        fontWeight: c == _selectedCategory
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                        color: tt.colorScheme.onSurface,
+                                      )),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                );
+              }),
               SizedBox(height: r.cardSpacing - 4),
               TextField(
                 controller: _nameController,
