@@ -429,9 +429,9 @@ class _SavingGoalsContentState extends ConsumerState<SavingGoalsContent> {
               },
             );
           },
-          loading: () => Center(child: CircularProgressIndicator()),
+          loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, __) => Text('Error: $e'),
-        ),
+        ) ?? const SizedBox.shrink(),
       ],
     );
 
