@@ -17,7 +17,14 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeSupabase();
+  
+  // Usamos un try-catch para evitar que un error en Supabase bloquee toda la app
+  try {
+    await initializeSupabase();
+  } catch (e) {
+    debugPrint('Error inicializando Supabase: $e');
+  }
+  
   runApp(const ProviderScope(child: StopingYourselfApp()));
 }
 
