@@ -257,6 +257,146 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
         ),
         SizedBox(height: r.cardSpacing + 4),
 
+        // --- Total Deudas (resumen) ---
+        if (debtsAsync != null)
+          Builder(
+            builder: (_) {
+              final debts = debtsAsync.asData?.value ?? [];
+              if (debts.isEmpty) return const SizedBox.shrink();
+              double totalAll = 0;
+              double totalAhorro = 0;
+              double prestamoAhorro = 0;
+              double atrasoAhorro = 0;
+              double tarjeta = 0;
+              double otro = 0;
+              for (final d in debts) {
+                final td = d.totalDebt;
+                totalAll += td;
+                if (d.isLinkedToSavings) {
+                  totalAhorro += td;
+                  if (d.debtType == 'prestamo_ahorro') {
+                    prestamoAhorro += td;
+                  } else if (d.debtType == 'atraso_ahorro') {
+                    atrasoAhorro += td;
+                  }
+                } else if (d.debtType == 'tarjeta') {
+                  tarjeta += td;
+                } else {
+                  otro += td;
+                }
+              }
+              return Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(r.cardSpacing + 2),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [neon.withValues(alpha: 0.9), neon2],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(r.borderRadius),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.summarize, color: Colors.white, size: r.iconSizeMedium),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Total Deudas',
+                          style: GoogleFonts.outfit(
+                            fontSize: r.subtitleFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: r.cardSpacing - 2),
+                    Text(
+                      '\$${totalAll.toStringAsFixed(2)}',
+                      style: GoogleFonts.outfit(
+                        fontSize: r.isDesktop ? 28 : 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    if (totalAhorro > 0) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Deuda al ahorro: \$${totalAhorro.toStringAsFixed(2)}',
+                        style: GoogleFonts.inter(
+                          fontSize: r.bodyFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.95),
+                        ),
+                      ),
+                      if (prestamoAhorro > 0)
+                        Text(
+                          '  Prestamo del ahorro: \$${prestamoAhorro.toStringAsFixed(2)}',
+                          style: GoogleFonts.inter(
+                            fontSize: r.bodyFontSize - 1,
+                            color: Colors.white.withValues(alpha: 0.75),
+                          ),
+                        ),
+                      if (atrasoAhorro > 0)
+                        Text(
+                          '  Atraso al ahorro: \$${atrasoAhorro.toStringAsFixed(2)}',
+                          style: GoogleFonts.inter(
+                            fontSize: r.bodyFontSize - 1,
+                            color: Colors.white.withValues(alpha: 0.75),
+                          ),
+                        ),
+                    ],
+                    if (tarjeta > 0 || otro > 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Otras deudas:',
+                        style: GoogleFonts.inter(
+                          fontSize: r.bodyFontSize - 1,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                      if (tarjeta > 0)
+                        Text(
+                          '  Tarjeta de credito: \$${tarjeta.toStringAsFixed(2)}',
+                          style: GoogleFonts.inter(
+                            fontSize: r.bodyFontSize - 2,
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      if (otro > 0)
+                        Text(
+                          '  Otros: \$${otro.toStringAsFixed(2)}',
+                          style: GoogleFonts.inter(
+                            fontSize: r.bodyFontSize - 2,
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
+                        ),
+                    ],
+                    if (widget.totalSaved > 0 && totalAhorro > 0) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Ahorro real disponible: \$${(widget.totalSaved - totalAhorro).clamp(0, double.infinity).toStringAsFixed(2)}',
+                        style: GoogleFonts.inter(
+                          fontSize: r.bodyFontSize - 1,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.95),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+
+        if (debtsAsync != null &&
+            (debtsAsync.asData?.value ?? []).isNotEmpty)
+          SizedBox(height: r.cardSpacing + 12),
+
         // --- Formulario ---
         Container(
           padding: EdgeInsets.all(r.cardSpacing + 2),
