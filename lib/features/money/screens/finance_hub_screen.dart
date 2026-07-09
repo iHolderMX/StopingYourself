@@ -9,6 +9,7 @@ import 'salary_summary_card.dart';
 import 'finance_charts.dart';
 import 'debts_content.dart';
 import 'saving_goals_content.dart';
+import 'next_quincena_card.dart';
 
 // Aliases para providers de otras pantallas
 import 'money_tracking_screen.dart' as money;
@@ -140,25 +141,75 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
             ),
           ),
           SizedBox(height: r.cardSpacing),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
+            child: const NextQuincenaCard(),
+          ),
+          SizedBox(height: r.cardSpacing),
           if (_compactMode)
-            // Modo compacto: 4 columnas con scroll propio
+            // Modo compacto: columnas responsivas con Wrap
             Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Expanded(child: MoneyTrackingScreen()),
-                    SizedBox(width: r.cardSpacing),
-                    const Expanded(child: FixedExpensesContent()),
-                    SizedBox(width: r.cardSpacing),
-                    Expanded(child: DebtsContent(totalSaved: saved)),
-                    SizedBox(width: r.cardSpacing),
-                    const Expanded(child: SavingGoalsContent()),
-                    SizedBox(width: r.cardSpacing),
-                    Expanded(child: charts),
-                  ],
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxW = constraints.maxWidth;
+                  // En pantallas anchas: 5 columnas expandidas
+                  // En pantallas angostas: Wrap con columnas de ancho fijo
+                  final useWrap = maxW < 1300;
+                  const colMinWidth = 300.0;
+
+                  if (useWrap) {
+                    return SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: r.padHorizontal,
+                        vertical: r.padVertical / 2,
+                      ),
+                      child: Wrap(
+                        spacing: r.cardSpacing,
+                        runSpacing: r.cardSpacing,
+                        children: [
+                          const SizedBox(
+                            width: colMinWidth,
+                            child: MoneyTrackingScreen(),
+                          ),
+                          const SizedBox(
+                            width: colMinWidth,
+                            child: FixedExpensesContent(),
+                          ),
+                          SizedBox(
+                            width: colMinWidth,
+                            child: DebtsContent(totalSaved: saved),
+                          ),
+                          const SizedBox(
+                            width: colMinWidth,
+                            child: SavingGoalsContent(),
+                          ),
+                          SizedBox(
+                            width: colMinWidth,
+                            child: charts,
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return Padding(
+                    padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Expanded(child: MoneyTrackingScreen()),
+                        SizedBox(width: r.cardSpacing),
+                        const Expanded(child: FixedExpensesContent()),
+                        SizedBox(width: r.cardSpacing),
+                        Expanded(child: DebtsContent(totalSaved: saved)),
+                        SizedBox(width: r.cardSpacing),
+                        const Expanded(child: SavingGoalsContent()),
+                        SizedBox(width: r.cardSpacing),
+                        Expanded(child: charts),
+                      ],
+                    ),
+                  );
+                },
               ),
             )
           else
@@ -233,6 +284,11 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
               ),
             ],
           ),
+        ),
+        SizedBox(height: r.cardSpacing - 4),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
+          child: const NextQuincenaCard(),
         ),
         if (_compactMode) ...[
           Container(

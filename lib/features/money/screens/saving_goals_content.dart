@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/database_service.dart';
 import '../../../core/services/supabase_service.dart';
@@ -207,7 +206,7 @@ class _SavingGoalsContentState extends ConsumerState<SavingGoalsContent> {
 
         // --- Formulario ---
         Container(
-          padding: EdgeInsets.all(r.cardSpacing + 2),
+          padding: EdgeInsets.all(widget.compact ? 12 : r.cardSpacing + 2),
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(r.borderRadius),
@@ -239,10 +238,10 @@ class _SavingGoalsContentState extends ConsumerState<SavingGoalsContent> {
                 ),
               ),
               SizedBox(height: r.cardSpacing - 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
+              if (widget.compact)
+                Column(
+                  children: [
+                    TextField(
                       controller: _targetAmountController,
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
@@ -250,10 +249,8 @@ class _SavingGoalsContentState extends ConsumerState<SavingGoalsContent> {
                         prefixIcon: Icon(Icons.flag_outlined),
                       ),
                     ),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
+                    SizedBox(height: r.cardSpacing - 4),
+                    TextField(
                       controller: _currentAmountController,
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
@@ -261,9 +258,34 @@ class _SavingGoalsContentState extends ConsumerState<SavingGoalsContent> {
                         prefixIcon: Icon(Icons.account_balance_wallet_outlined),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _targetAmountController,
+                        keyboardType: TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Meta (\$)',
+                          prefixIcon: Icon(Icons.flag_outlined),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _currentAmountController,
+                        keyboardType: TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Ya tengo (\$)',
+                          prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               SizedBox(height: r.cardSpacing - 4),
               TextField(
                 controller: _urlController,
@@ -320,10 +342,9 @@ class _SavingGoalsContentState extends ConsumerState<SavingGoalsContent> {
               itemBuilder: (context, index) {
                 final goal = goals[index];
                 final progress = goal.progress.clamp(0.0, 1.0);
-                final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
                 
                 return Container(
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(widget.compact ? 12 : 16),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
@@ -341,9 +362,11 @@ class _SavingGoalsContentState extends ConsumerState<SavingGoalsContent> {
                                 Text(
                                   goal.name,
                                   style: GoogleFonts.outfit(
-                                    fontSize: 16,
+                                    fontSize: widget.compact ? 14 : 16,
                                     fontWeight: FontWeight.bold,
                                   ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 if (goal.url != null)
                                   GestureDetector(
@@ -375,21 +398,22 @@ class _SavingGoalsContentState extends ConsumerState<SavingGoalsContent> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 12),
+                      SizedBox(height: widget.compact ? 8 : 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             '${(progress * 100).toStringAsFixed(0)}%',
                             style: GoogleFonts.inter(
+                              fontSize: widget.compact ? 12 : 14,
                               fontWeight: FontWeight.bold,
                               color: neon,
                             ),
                           ),
                           Text(
-                            '${currencyFormat.format(goal.currentAmount)} / ${currencyFormat.format(goal.targetAmount)}',
+                            '\$${goal.currentAmount.toStringAsFixed(0)} / \$${goal.targetAmount.toStringAsFixed(0)}',
                             style: GoogleFonts.inter(
-                              fontSize: 12,
+                              fontSize: widget.compact ? 11 : 12,
                               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                             ),
                           ),
@@ -436,7 +460,10 @@ class _SavingGoalsContentState extends ConsumerState<SavingGoalsContent> {
     );
 
     if (widget.compact) {
-      return content;
+      return SingleChildScrollView(
+        padding: EdgeInsets.symmetric(vertical: 4),
+        child: content,
+      );
     }
 
     return SingleChildScrollView(
