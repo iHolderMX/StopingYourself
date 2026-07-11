@@ -12,6 +12,8 @@ import '../../models/debt.dart';
 import '../../models/health_record.dart';
 import '../../models/daily_activity.dart';
 import '../../models/saving_goal.dart';
+import '../../models/lol_record.dart';
+import '../../models/monthly_payment.dart';
 import 'supabase_service.dart';
 
 final databaseServiceProvider = Provider<DatabaseService>((ref) {
@@ -513,5 +515,101 @@ class DatabaseService {
 
   Future<void> deleteSavingGoal(String id) async {
     await _client.from('saving_goals').delete().eq('id', id);
+  }
+
+  // ============================================================
+  // LoL (Registros de PL ganado/perdido)
+  // ============================================================
+  Future<List<LolRecord>> getLolRecords(String userId) async {
+    try {
+      final data = await _client
+          .from('lol_records')
+          .select()
+          .eq('user_id', userId)
+          .order('record_date', ascending: false);
+      return data.map((e) => LolRecord.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> insertLolRecord(LolRecord record) async {
+    await _client.from('lol_records').insert(record.toJson());
+  }
+
+  Future<void> updateLolRecord(LolRecord record) async {
+    await _client
+        .from('lol_records')
+        .update(record.toJson())
+        .eq('id', record.id);
+  }
+
+  Future<void> deleteLolRecord(String id) async {
+    await _client.from('lol_records').delete().eq('id', id);
+  }
+
+  Future<double> getTotalNetPl(String userId) async {
+    try {
+      final data = await _client
+          .from('lol_records')
+          .select('pl_gained, pl_lost')
+          .eq('user_id', userId);
+      double net = 0;
+      for (final item in data) {
+        final gained = (item['pl_gained'] as num?)?.toDouble() ?? 0;
+        final lost = (item['pl_lost'] as num?)?.toDouble() ?? 0;
+        net += (gained - lost);
+      }
+      return net;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // ============================================================
+  // Pagos mensuales (creditos corto plazo / tarjetas)
+  // ============================================================
+  Future<List<MonthlyPayment>> getMonthlyPayments(String userId) async {
+    try {
+      final data = await _client
+          .from('monthly_payments')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      return data.map((e) => MonthlyPayment.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> insertMonthlyPayment(MonthlyPayment payment) async {
+    await _client.from('monthly_payments').insert(payment.toJson());
+  }
+
+  Future<void> updateMonthlyPayment(MonthlyPayment payment) async {
+    await _client
+        .from('monthly_payments')
+        .update(payment.toJson())
+        .eq('id', payment.id);
+  }
+
+  Future<void> deleteMonthlyPayment(String id) async {
+    await _client.from('monthly_payments').delete().eq('id', id);
+  }
+
+  Future<double> getTotalMonthlyPayments(String userId) async {
+    try {
+      final data = await _client
+          .from('monthly_payments')
+          .select('amount')
+          .eq('user_id', userId);
+      double total = 0;
+      for (final item in data) {
+        total += (item['amount'] as num?)?.toDouble() ?? 0;
+      }
+      return total;
+    } catch (_) {
+      return 0;
+    }
   }
 }

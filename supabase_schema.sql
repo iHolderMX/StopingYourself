@@ -490,3 +490,66 @@ CREATE POLICY "Eliminar meta propia" ON public.saving_goals
   FOR DELETE USING (auth.uid() = user_id);
 
 CREATE INDEX IF NOT EXISTS idx_saving_goals_user_id ON public.saving_goals(user_id);
+
+-- ============================================================
+-- 13. Tabla de registros de LoL (Pl ganado/perdido)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.lol_records (
+  id TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  pl_gained NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  pl_lost NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  record_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.lol_records ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Ver registros de LoL propios" ON public.lol_records;
+CREATE POLICY "Ver registros de LoL propios" ON public.lol_records
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Insertar registro de LoL propio" ON public.lol_records;
+CREATE POLICY "Insertar registro de LoL propio" ON public.lol_records
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Actualizar registro de LoL propio" ON public.lol_records;
+CREATE POLICY "Actualizar registro de LoL propio" ON public.lol_records
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Eliminar registro de LoL propio" ON public.lol_records;
+CREATE POLICY "Eliminar registro de LoL propio" ON public.lol_records
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_lol_records_user_id ON public.lol_records(user_id);
+
+-- ============================================================
+-- 14. Tabla de pagos mensuales (creditos de corto plazo / tarjetas)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.monthly_payments (
+  id TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  amount NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.monthly_payments ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Ver pagos mensuales propios" ON public.monthly_payments;
+CREATE POLICY "Ver pagos mensuales propios" ON public.monthly_payments
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Insertar pago mensual propio" ON public.monthly_payments;
+CREATE POLICY "Insertar pago mensual propio" ON public.monthly_payments
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Actualizar pago mensual propio" ON public.monthly_payments;
+CREATE POLICY "Actualizar pago mensual propio" ON public.monthly_payments
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Eliminar pago mensual propio" ON public.monthly_payments;
+CREATE POLICY "Eliminar pago mensual propio" ON public.monthly_payments
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_monthly_payments_user_id ON public.monthly_payments(user_id);

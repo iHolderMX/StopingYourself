@@ -27,7 +27,7 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   bool _compactMode =
-      true; // true = columnas con scroll propio, false = todo visible sin scroll interno
+      false; // true = columnas con scroll propio, false = todo visible sin scroll interno
 
   @override
   void initState() {
@@ -95,75 +95,75 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
     );
 
     if (r.isDesktop) {
-      return Column(
-        children: [
-          // Header: salary card + toggle flotante
-          Padding(
-            padding: EdgeInsets.only(
-              left: r.padHorizontal,
-              right: r.padHorizontal,
-              top: r.padVertical,
-            ),
-            child: Stack(
-              children: [
-                salaryCard,
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(r.borderRadius - 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.colorScheme.primary.withValues(
-                            alpha: 0.08,
+      return SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: r.padVertical),
+        child: Column(
+          children: [
+            // Header: salary card + toggle flotante
+            Padding(
+              padding: EdgeInsets.only(
+                left: r.padHorizontal,
+                right: r.padHorizontal,
+                top: r.padVertical,
+              ),
+              child: Stack(
+                children: [
+                  salaryCard,
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(r.borderRadius - 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.08,
+                            ),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
                           ),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        _compactMode ? Icons.fullscreen : Icons.fullscreen_exit,
-                        size: 22,
+                        ],
                       ),
-                      tooltip: _compactMode
-                          ? 'Ver todo expandido'
-                          : 'Ver columnas compactas',
-                      onPressed: () =>
-                          setState(() => _compactMode = !_compactMode),
+                      child: IconButton(
+                        icon: Icon(
+                          _compactMode
+                              ? Icons.fullscreen
+                              : Icons.fullscreen_exit,
+                          size: 22,
+                        ),
+                        tooltip: _compactMode
+                            ? 'Ver todo expandido'
+                            : 'Ver columnas compactas',
+                        onPressed: () =>
+                            setState(() => _compactMode = !_compactMode),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          SizedBox(height: r.cardSpacing),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
-            child: const NextQuincenaCard(),
-          ),
-          SizedBox(height: r.cardSpacing),
-          if (_compactMode)
-            // Modo compacto: columnas responsivas con Wrap
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final maxW = constraints.maxWidth;
-                  // En pantallas anchas: 5 columnas expandidas
-                  // En pantallas angostas: Wrap con columnas de ancho fijo
-                  final useWrap = maxW < 1300;
-                  const colMinWidth = 300.0;
+            SizedBox(height: r.cardSpacing),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
+              child: const NextQuincenaCard(),
+            ),
+            SizedBox(height: r.cardSpacing),
+            if (_compactMode)
+              // Modo compacto: columnas responsivas con Wrap
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxW = constraints.maxWidth;
+                    // En pantallas anchas: 5 columnas expandidas
+                    // En pantallas angostas: Wrap con columnas de ancho fijo
+                    final useWrap = maxW < 1300;
+                    const colMinWidth = 300.0;
 
-                  if (useWrap) {
-                    return SingleChildScrollView(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: r.padHorizontal,
-                        vertical: r.padVertical / 2,
-                      ),
-                      child: Wrap(
+                    if (useWrap) {
+                      return Wrap(
                         spacing: r.cardSpacing,
                         runSpacing: r.cardSpacing,
                         children: [
@@ -183,18 +183,12 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
                             width: colMinWidth,
                             child: SavingGoalsContent(),
                           ),
-                          SizedBox(
-                            width: colMinWidth,
-                            child: charts,
-                          ),
+                          SizedBox(width: colMinWidth, child: charts),
                         ],
-                      ),
-                    );
-                  }
+                      );
+                    }
 
-                  return Padding(
-                    padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
-                    child: Row(
+                    return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Expanded(child: MoneyTrackingScreen()),
@@ -207,19 +201,14 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
                         SizedBox(width: r.cardSpacing),
                         Expanded(child: charts),
                       ],
-                    ),
-                  );
-                },
-              ),
-            )
-          else
-            // Modo expandido: todo vertical, un solo scroll de pagina
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: r.padHorizontal,
-                  vertical: r.padVertical / 2,
+                    );
+                  },
                 ),
+              )
+            else
+              // Modo expandido: todo vertical, dentro del scroll principal
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
                 child: Column(
                   children: [
                     const MoneyTrackingScreen(compact: false),
@@ -234,9 +223,8 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
                   ],
                 ),
               ),
-            ),
-          SizedBox(height: r.padVertical),
-        ],
+          ],
+        ),
       );
     }
 

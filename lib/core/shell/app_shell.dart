@@ -25,6 +25,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       '/money',
       '/health',
       '/activities',
+      '/games',
       '/profile',
     ];
     context.go(routes[index]);
@@ -136,6 +137,11 @@ class _DesktopLayout extends ConsumerWidget {
                 label: Text('Tareas'),
               ),
               NavigationRailDestination(
+                icon: Icon(Icons.sports_esports_outlined),
+                selectedIcon: Icon(Icons.sports_esports),
+                label: Text('Juegos'),
+              ),
+              NavigationRailDestination(
                 icon: Icon(Icons.person_outline),
                 selectedIcon: Icon(Icons.person),
                 label: Text('Perfil'),
@@ -227,6 +233,11 @@ class _MobileLayout extends ConsumerWidget {
             icon: Icon(Icons.checklist_outlined),
             selectedIcon: Icon(Icons.checklist_rounded),
             label: 'Tareas',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.sports_esports_outlined),
+            selectedIcon: Icon(Icons.sports_esports),
+            label: 'Juegos',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

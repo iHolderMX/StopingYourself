@@ -10,6 +10,7 @@ import '../../features/relapse/screens/relapse_tracking_screen.dart';
 import '../../features/money/screens/finance_hub_screen.dart';
 import '../../features/health/screens/health_tracking_screen.dart';
 import '../../features/activities/screens/daily_activities_screen.dart';
+import '../../features/games/screens/lol_tracking_screen.dart';
 import '../services/supabase_service.dart';
 import '../shell/app_shell.dart';
 
@@ -59,6 +60,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/activities',
             builder: (context, state) => const DailyActivitiesScreen(),
+          ),
+          GoRoute(
+            path: '/games',
+            builder: (context, state) => const LoLTrackingScreen(),
           ),
           GoRoute(
             path: '/profile',
