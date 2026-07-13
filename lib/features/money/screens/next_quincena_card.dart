@@ -19,6 +19,11 @@ final _monthlyPaymentsProvider =
       return db.getMonthlyPayments(userId);
     });
 
+final _totalDailyEarningsProvider = FutureProvider.family<double, String>(
+  (ref, userId) =>
+      ref.watch(databaseServiceProvider).getTotalDailyEarnings(userId),
+);
+
 class NextQuincenaCard extends ConsumerWidget {
   const NextQuincenaCard({super.key});
 
@@ -31,10 +36,12 @@ class NextQuincenaCard extends ConsumerWidget {
     final fixedAsync = ref.watch(fixedExpensesProvider(user.id));
     final salaryAsync = ref.watch(salarySettingProvider(user.id));
     final monthlyAsync = ref.watch(_monthlyPaymentsProvider(user.id));
+    final dailyEarningsAsync = ref.watch(_totalDailyEarningsProvider(user.id));
 
     final debts = debtsAsync.asData?.value ?? [];
     final fixedExpenses = fixedAsync.asData?.value ?? [];
     final monthlySalary = salaryAsync.asData?.value?.monthlySalary ?? 0;
+    final dailyReturn = dailyEarningsAsync.asData?.value ?? 0;
     final monthlyPayments = monthlyAsync.asData?.value ?? [];
 
     final totalFixed = fixedExpenses.fold<double>(0, (s, e) => s + e.amount);
@@ -63,8 +70,13 @@ class NextQuincenaCard extends ConsumerWidget {
     final totalComprometido =
         quincenaFixed + debtPayments + totalCreditosMes + totalAhorro;
     final quincenaSalary = monthlySalary / 2;
-    final disponible =
-        (quincenaSalary - totalComprometido).clamp(0, double.infinity);
+    final disponible = (quincenaSalary - totalComprometido)
+        .clamp(0.0, double.infinity)
+        .toDouble();
+
+    final libreDonut = (quincenaSalary - totalCreditosMes - totalAhorro)
+        .clamp(0.0, double.infinity)
+        .toDouble();
 
     final theme = Theme.of(context);
     final r = ResponsiveHelper(context);
@@ -76,10 +88,7 @@ class NextQuincenaCard extends ConsumerWidget {
       padding: EdgeInsets.all(r.cardSpacing + 2),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            neon2.withValues(alpha: 0.08),
-            neon.withValues(alpha: 0.03),
-          ],
+          colors: [neon2.withValues(alpha: 0.08), neon.withValues(alpha: 0.03)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -138,7 +147,11 @@ class NextQuincenaCard extends ConsumerWidget {
                   color: Colors.orange,
                   r: r,
                   onTap: () => _showMonthlyPaymentsDialog(
-                      context, ref, user.id, 'credito'),
+                    context,
+                    ref,
+                    user.id,
+                    'credito',
+                  ),
                 ),
               ),
               SizedBox(width: r.cardSpacing - 4),
@@ -165,7 +178,11 @@ class NextQuincenaCard extends ConsumerWidget {
                   color: Colors.purple,
                   r: r,
                   onTap: () => _showMonthlyPaymentsDialog(
-                      context, ref, user.id, 'ahorro'),
+                    context,
+                    ref,
+                    user.id,
+                    'ahorro',
+                  ),
                 ),
               ),
               SizedBox(width: r.cardSpacing - 4),
@@ -197,8 +214,137 @@ class NextQuincenaCard extends ConsumerWidget {
               theme: theme,
               r: r,
             ),
+            SizedBox(height: r.cardSpacing),
+            const Divider(),
+            SizedBox(height: r.cardSpacing - 2),
+            _DiasRendimiento(
+              creditos: totalCreditosMes,
+              ahorro: totalAhorro,
+              libre: libreDonut,
+              dailyReturn: dailyReturn,
+              userId: user.id,
+              theme: theme,
+              r: r,
+            ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _DiasRendimiento extends StatelessWidget {
+  final double creditos;
+  final double ahorro;
+  final double libre;
+  final double dailyReturn;
+  final String userId;
+  final ThemeData theme;
+  final ResponsiveHelper r;
+
+  const _DiasRendimiento({
+    required this.creditos,
+    required this.ahorro,
+    required this.libre,
+    required this.dailyReturn,
+    required this.userId,
+    required this.theme,
+    required this.r,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final diario = dailyReturn;
+
+    String fmtDays(double amount) {
+      if (diario <= 0) return '-';
+      final d = amount / diario;
+      if (d < 1) return '${(d * 24).toStringAsFixed(0)} h';
+      return '${d.toStringAsFixed(0)} d';
+    }
+
+    final credDias = fmtDays(creditos);
+    final ahorroDias = fmtDays(ahorro);
+    final libreDias = fmtDays(libre);
+
+    return Row(
+      children: [
+        _DayChip(
+          color: Colors.orange,
+          label: 'Creditos',
+          dias: credDias,
+          theme: theme,
+          r: r,
+        ),
+        const SizedBox(width: 8),
+        _DayChip(
+          color: Colors.purple,
+          label: 'Ahorro',
+          dias: ahorroDias,
+          theme: theme,
+          r: r,
+        ),
+        const SizedBox(width: 8),
+        _DayChip(
+          color: Colors.green,
+          label: 'Libre',
+          dias: libreDias,
+          theme: theme,
+          r: r,
+          bold: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _DayChip extends StatelessWidget {
+  final Color color;
+  final String label;
+  final String dias;
+  final ThemeData theme;
+  final ResponsiveHelper r;
+  final bool bold;
+
+  const _DayChip({
+    required this.color,
+    required this.label,
+    required this.dias,
+    required this.theme,
+    required this.r,
+    this.bold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              dias,
+              style: GoogleFonts.outfit(
+                fontSize: r.isDesktop ? 18 : 15,
+                fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: r.bodyFontSize - 3,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -304,16 +450,19 @@ class _QuincenaDonut extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final libre =
-        (quincenaSalary - creditos - ahorro).clamp(0.0, double.infinity).toDouble();
-    final credPct = (quincenaSalary > 0
-            ? (creditos / quincenaSalary * 100).clamp(0.0, 100.0)
-            : 0.0)
+    final libre = (quincenaSalary - creditos - ahorro)
+        .clamp(0.0, double.infinity)
         .toDouble();
-    final ahorroPct = (quincenaSalary > 0
-            ? (ahorro / quincenaSalary * 100).clamp(0.0, 100.0)
-            : 0.0)
-        .toDouble();
+    final credPct =
+        (quincenaSalary > 0
+                ? (creditos / quincenaSalary * 100).clamp(0.0, 100.0)
+                : 0.0)
+            .toDouble();
+    final ahorroPct =
+        (quincenaSalary > 0
+                ? (ahorro / quincenaSalary * 100).clamp(0.0, 100.0)
+                : 0.0)
+            .toDouble();
     final librePct = (100.0 - credPct - ahorroPct).clamp(0.0, 100.0).toDouble();
 
     return Row(
@@ -352,9 +501,28 @@ class _QuincenaDonut extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              _Legend(color: Colors.orange, label: 'Creditos', amount: creditos, pct: credPct, r: r),
-              _Legend(color: Colors.purple, label: 'Ahorro Asegurado', amount: ahorro, pct: ahorroPct, r: r),
-              _Legend(color: Colors.green, label: 'Libre', amount: libre, pct: librePct, r: r, bold: true),
+              _Legend(
+                color: Colors.orange,
+                label: 'Creditos',
+                amount: creditos,
+                pct: credPct,
+                r: r,
+              ),
+              _Legend(
+                color: Colors.purple,
+                label: 'Ahorro Asegurado',
+                amount: ahorro,
+                pct: ahorroPct,
+                r: r,
+              ),
+              _Legend(
+                color: Colors.green,
+                label: 'Libre',
+                amount: libre,
+                pct: librePct,
+                r: r,
+                bold: true,
+              ),
             ],
           ),
         ),
@@ -387,7 +555,8 @@ class _Legend extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 10, height: 10,
+            width: 10,
+            height: 10,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
@@ -450,7 +619,9 @@ class _DonutPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _DonutPainter old) =>
-      credPct != old.credPct || ahorroPct != old.ahorroPct || librePct != old.librePct;
+      credPct != old.credPct ||
+      ahorroPct != old.ahorroPct ||
+      librePct != old.librePct;
 }
 
 void _showMonthlyPaymentsDialog(
@@ -461,7 +632,9 @@ void _showMonthlyPaymentsDialog(
 ) {
   final title = type == 'ahorro' ? 'Ahorro Asegurado' : 'Creditos Mensuales';
   final color = type == 'ahorro' ? Colors.purple : Colors.orange;
-  final icon = type == 'ahorro' ? Icons.shield_outlined : Icons.credit_score_outlined;
+  final icon = type == 'ahorro'
+      ? Icons.shield_outlined
+      : Icons.credit_score_outlined;
 
   showDialog(
     context: context,
@@ -498,8 +671,9 @@ void _showMonthlyPaymentsDialog(
               Flexible(
                 child: paymentsAsync.when(
                   data: (payments) {
-                    final filtered =
-                        payments.where((p) => p.type == type).toList();
+                    final filtered = payments
+                        .where((p) => p.type == type)
+                        .toList();
                     if (filtered.isEmpty) {
                       return const Padding(
                         padding: EdgeInsets.all(32),
@@ -519,17 +693,21 @@ void _showMonthlyPaymentsDialog(
                               Text(
                                 '\$${p.amount.toStringAsFixed(2)}',
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w600),
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline,
-                                    color: Colors.red),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                ),
                                 onPressed: () async {
                                   await ref
                                       .read(databaseServiceProvider)
                                       .deleteMonthlyPayment(p.id);
                                   ref.invalidate(
-                                      _monthlyPaymentsProvider(userId));
+                                    _monthlyPaymentsProvider(userId),
+                                  );
                                 },
                               ),
                             ],
@@ -559,7 +737,8 @@ class _AddMonthlyPaymentRow extends ConsumerStatefulWidget {
   const _AddMonthlyPaymentRow({required this.userId, required this.type});
 
   @override
-  ConsumerState<_AddMonthlyPaymentRow> createState() => _AddMonthlyPaymentRowState();
+  ConsumerState<_AddMonthlyPaymentRow> createState() =>
+      _AddMonthlyPaymentRowState();
 }
 
 class _AddMonthlyPaymentRowState extends ConsumerState<_AddMonthlyPaymentRow> {
@@ -571,9 +750,9 @@ class _AddMonthlyPaymentRowState extends ConsumerState<_AddMonthlyPaymentRow> {
     final name = _nameCtrl.text.trim();
     final amount = double.tryParse(_amountCtrl.text.replaceAll(',', '.')) ?? 0;
     if (name.isEmpty || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingresa nombre y monto')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Ingresa nombre y monto')));
       return;
     }
 
@@ -623,15 +802,15 @@ class _AddMonthlyPaymentRowState extends ConsumerState<_AddMonthlyPaymentRow> {
       _nameCtrl.clear();
       _amountCtrl.clear();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Agregado correctamente')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Agregado correctamente')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -649,8 +828,9 @@ class _AddMonthlyPaymentRowState extends ConsumerState<_AddMonthlyPaymentRow> {
             child: TextField(
               controller: _nameCtrl,
               decoration: InputDecoration(
-                labelText:
-                    widget.type == 'ahorro' ? 'Nombre del ahorro' : 'Nombre (ej: Tarjeta X)',
+                labelText: widget.type == 'ahorro'
+                    ? 'Nombre del ahorro'
+                    : 'Nombre (ej: Tarjeta X)',
                 isDense: true,
               ),
             ),
@@ -660,8 +840,9 @@ class _AddMonthlyPaymentRowState extends ConsumerState<_AddMonthlyPaymentRow> {
             flex: 1,
             child: TextField(
               controller: _amountCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 labelText: 'Monto',
                 isDense: true,
