@@ -229,77 +229,86 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
     }
 
     // Mobile / Tablet: 4 tabs + toggle
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.only(
-            left: r.padHorizontal,
-            right: r.padHorizontal,
-            top: r.padVertical,
-          ),
-          child: Stack(
-            children: [
-              salaryCard,
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(r.borderRadius - 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.colorScheme.primary.withValues(
-                          alpha: 0.08,
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) {
+        return [
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: r.padHorizontal,
+                    right: r.padHorizontal,
+                    top: r.padVertical,
+                  ),
+                  child: Stack(
+                    children: [
+                      salaryCard,
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(r.borderRadius - 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.08,
+                                ),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: IconButton(
+                            icon: Icon(
+                              _compactMode ? Icons.fullscreen : Icons.fullscreen_exit,
+                              size: 20,
+                            ),
+                            tooltip: _compactMode
+                                ? 'Ver todo expandido'
+                                : 'Ver columnas compactas',
+                            onPressed: () =>
+                                setState(() => _compactMode = !_compactMode),
+                          ),
                         ),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: IconButton(
-                    icon: Icon(
-                      _compactMode ? Icons.fullscreen : Icons.fullscreen_exit,
-                      size: 20,
-                    ),
-                    tooltip: _compactMode
-                        ? 'Ver todo expandido'
-                        : 'Ver columnas compactas',
-                    onPressed: () =>
-                        setState(() => _compactMode = !_compactMode),
-                  ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: r.cardSpacing - 4),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
-          child: const NextQuincenaCard(),
-        ),
-        if (_compactMode) ...[
-          Container(
-            color: Theme.of(context).colorScheme.surface,
-            child: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              labelStyle: GoogleFonts.inter(
-                fontSize: r.bodyFontSize,
-                fontWeight: FontWeight.w600,
-              ),
-              unselectedLabelStyle: GoogleFonts.inter(fontSize: r.bodyFontSize),
-              tabs: const [
-                Tab(icon: Icon(Icons.savings_outlined), text: 'Ahorros'),
-                Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Gastos'),
-                Tab(icon: Icon(Icons.account_balance_outlined), text: 'Deudas'),
-                Tab(icon: Icon(Icons.star_outline), text: 'Metas'),
-                Tab(icon: Icon(Icons.bar_chart_outlined), text: 'Graficas'),
+                SizedBox(height: r.cardSpacing - 4),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
+                  child: const NextQuincenaCard(),
+                ),
+                if (_compactMode)
+                  Container(
+                    color: Theme.of(context).colorScheme.surface,
+                    child: TabBar(
+                      controller: _tabController,
+                      isScrollable: true,
+                      labelStyle: GoogleFonts.inter(
+                        fontSize: r.bodyFontSize,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      unselectedLabelStyle: GoogleFonts.inter(fontSize: r.bodyFontSize),
+                      tabs: const [
+                        Tab(icon: Icon(Icons.savings_outlined), text: 'Ahorros'),
+                        Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Gastos'),
+                        Tab(icon: Icon(Icons.account_balance_outlined), text: 'Deudas'),
+                        Tab(icon: Icon(Icons.star_outline), text: 'Metas'),
+                        Tab(icon: Icon(Icons.bar_chart_outlined), text: 'Graficas'),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
-          Expanded(
-            child: TabBarView(
+        ];
+      },
+      body: _compactMode
+          ? TabBarView(
               controller: _tabController,
               children: [
                 const MoneyTrackingScreen(),
@@ -314,11 +323,8 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
                   child: charts,
                 ),
               ],
-            ),
-          ),
-        ] else
-          Expanded(
-            child: SingleChildScrollView(
+            )
+          : SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
               child: Column(
                 children: [
@@ -334,8 +340,6 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
                 ],
               ),
             ),
-          ),
-      ],
     );
   }
 }
