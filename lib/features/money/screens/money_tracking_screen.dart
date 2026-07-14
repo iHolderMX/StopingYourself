@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/services/database_service.dart';
 import '../../../core/services/supabase_service.dart';
+import '../../../core/services/openai_service.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../models/money_record.dart';
 
@@ -37,6 +40,7 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
   final _descController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   bool _saving = false;
+  bool _scanning = false;
 
   @override
   void dispose() {
@@ -44,6 +48,85 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
     _yieldController.dispose();
     _descController.dispose();
     super.dispose();
+  }
+
+  Future<void> _scanReceipt() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image == null) return;
+
+    setState(() => _scanning = true);
+    try {
+      final bytes = await image.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      final openAI = OpenAIService();
+      final items = await openAI.extractReceiptData(base64Image);
+
+      if (items.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No se encontraron productos en el ticket'),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        _showScannedItemsDialog(items);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al escanear: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _scanning = false);
+      }
+    }
+  }
+
+  void _showScannedItemsDialog(List<Map<String, dynamic>> items) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Productos detectados'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return ListTile(
+                  title: Text(item['name'] ?? 'Desconocido'),
+                  trailing: Text('\$${item['price']}'),
+                  onTap: () {
+                    setState(() {
+                      _descController.text = item['name'];
+                      _amountController.text = item['price'].toString();
+                    });
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _save() async {
@@ -208,64 +291,96 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Nuevo registro',
-                style: GoogleFonts.outfit(
-                  fontSize: r.subtitleFontSize,
-                  fontWeight: FontWeight.w600,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Nuevo registro',
+                    style: GoogleFonts.outfit(
+                      fontSize: r.subtitleFontSize,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (_scanning)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    IconButton(
+                      icon: const Icon(Icons.document_scanner_outlined),
+                      color: neon,
+                      tooltip: 'Escanear ticket',
+                      onPressed: _scanReceipt,
+                    ),
+                ],
               ),
               SizedBox(height: r.cardSpacing),
-              Builder(builder: (ctx) {
-                final tt = Theme.of(ctx);
-                return InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Tipo',
-                    prefixIcon: Icon(Icons.category_outlined),
-                  ),
-                  child: PopupMenuButton<String>(
-                    initialValue: _selectedType,
-                    onSelected: (v) => setState(() => _selectedType = v),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(_selectedType,
+              Builder(
+                builder: (ctx) {
+                  final tt = Theme.of(ctx);
+                  return InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo',
+                      prefixIcon: Icon(Icons.category_outlined),
+                    ),
+                    child: PopupMenuButton<String>(
+                      initialValue: _selectedType,
+                      onSelected: (v) => setState(() => _selectedType = v),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _selectedType,
                               style: GoogleFonts.inter(
                                 fontSize: 15,
                                 color: tt.colorScheme.onSurface,
-                              )),
-                        ),
-                        Icon(Icons.arrow_drop_down, color: tt.colorScheme.primary),
-                      ],
-                    ),
-                    itemBuilder: (_) => moneyTypes
-                        .map((t) => PopupMenuItem(
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_drop_down,
+                            color: tt.colorScheme.primary,
+                          ),
+                        ],
+                      ),
+                      itemBuilder: (_) => moneyTypes
+                          .map(
+                            (t) => PopupMenuItem(
                               value: t,
                               child: Row(
                                 children: [
                                   if (t == _selectedType)
                                     Padding(
                                       padding: const EdgeInsets.only(right: 8),
-                                      child: Icon(Icons.check, size: 18,
-                                          color: tt.colorScheme.primary),
+                                      child: Icon(
+                                        Icons.check,
+                                        size: 18,
+                                        color: tt.colorScheme.primary,
+                                      ),
                                     )
                                   else
                                     const SizedBox(width: 26),
-                                  Text(t,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 15,
-                                        fontWeight: t == _selectedType
-                                            ? FontWeight.w600
-                                            : FontWeight.w400,
-                                        color: tt.colorScheme.onSurface,
-                                      )),
+                                  Text(
+                                    t,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      fontWeight: t == _selectedType
+                                          ? FontWeight.w600
+                                          : FontWeight.w400,
+                                      color: tt.colorScheme.onSurface,
+                                    ),
+                                  ),
                                 ],
                               ),
-                            ))
-                        .toList(),
-                  ),
-                );
-              }),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  );
+                },
+              ),
               SizedBox(height: r.cardSpacing - 4),
               TextField(
                 controller: _amountController,
