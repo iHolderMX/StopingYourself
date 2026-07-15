@@ -806,34 +806,13 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
         SizedBox(height: r.cardSpacing + 12),
 
         // --- Lista de deudas ---
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Mis deudas',
-              style: GoogleFonts.outfit(
-                fontSize: r.subtitleFontSize + 2,
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: () => _avanzarQuincena(
-                context,
-                ref,
-                user?.id ?? '',
-                debtsAsync?.asData?.value ?? [],
-              ),
-              icon: const Icon(Icons.fast_forward, size: 18),
-              label: const Text('Avanzar Quincena'),
-              style: TextButton.styleFrom(
-                foregroundColor: neon,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ),
-          ],
+        Text(
+          'Mis deudas',
+          style: GoogleFonts.outfit(
+            fontSize: r.subtitleFontSize + 2,
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+          ),
         ),
         SizedBox(height: r.cardSpacing - 4),
 
@@ -1086,25 +1065,13 @@ class _PaymentsSection extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Divider(color: theme.dividerColor),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Detalle de la deuda',
-                style: GoogleFonts.inter(
-                  fontSize: r.bodyFontSize - 2,
-                  fontWeight: FontWeight.w600,
-                  color: muted,
-                ),
-              ),
-              Text(
-                'Prox pago: ${DateFormat('dd/MM').format(debt.nextPaymentDue)}',
-                style: GoogleFonts.inter(
-                  fontSize: r.bodyFontSize - 2,
-                  color: muted,
-                ),
-              ),
-            ],
+          Text(
+            'Detalle de la deuda',
+            style: GoogleFonts.inter(
+              fontSize: r.bodyFontSize - 2,
+              fontWeight: FontWeight.w600,
+              color: muted,
+            ),
           ),
           SizedBox(height: 8),
           _InfoRow(
@@ -1193,20 +1160,92 @@ class _PaymentsSection extends ConsumerWidget {
             },
           ),
           SizedBox(height: 8),
-          SizedBox(
-            height: 36,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                final state = context
-                    .findAncestorStateOfType<_DebtsContentState>();
-                state?._addPayment(debt);
-              },
-              icon: const Icon(Icons.payment, size: 16),
-              label: Text(
-                'Registrar pago',
-                style: GoogleFonts.inter(fontSize: 12),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      final state = context
+                          .findAncestorStateOfType<_DebtsContentState>();
+                      state?._addPayment(debt);
+                    },
+                    icon: const Icon(Icons.payment, size: 16),
+                    label: Text(
+                      'Registrar pago',
+                      style: GoogleFonts.inter(fontSize: 12),
+                    ),
+                  ),
+                ),
               ),
-            ),
+              if (debt.isLinkedToSavings) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 36,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('¿Aplicar 5%?'),
+                            content: const Text(
+                              'Esto aumentará el saldo actual de esta deuda en un 5%. ¿Deseas continuar?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Cancelar'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Aplicar'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm != true) return;
+
+                        final db = ref.read(databaseServiceProvider);
+                        final newBalance = debt.currentBalance * 1.05;
+                        final updatedDebt = Debt(
+                          id: debt.id,
+                          userId: debt.userId,
+                          name: debt.name,
+                          debtType: debt.debtType,
+                          linkedTo: debt.linkedTo,
+                          initialAmount: debt.initialAmount,
+                          currentBalance: newBalance,
+                          interestRate: debt.interestRate,
+                          paymentPeriodDays: debt.paymentPeriodDays,
+                          minPayment: debt.minPayment,
+                          gracePeriodDays: debt.gracePeriodDays,
+                          startDate: debt.startDate,
+                          createdAt: debt.createdAt,
+                        );
+                        await db.updateDebt(updatedDebt);
+                        ref.invalidate(debtsProvider(debt.userId));
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Se aplicó el 5% a la deuda'),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.trending_up, size: 16),
+                      label: Text(
+                        '+5% Interés',
+                        style: GoogleFonts.inter(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
