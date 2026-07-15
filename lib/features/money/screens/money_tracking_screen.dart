@@ -41,6 +41,7 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
   DateTime _selectedDate = DateTime.now();
   bool _saving = false;
   bool _scanning = false;
+  String? _editingRecordId;
 
   @override
   void dispose() {
@@ -143,7 +144,9 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
 
     setState(() => _saving = true);
     final record = MoneyRecord(
-      id: '${user.id}_${DateTime.now().millisecondsSinceEpoch}',
+      id:
+          _editingRecordId ??
+          '${user.id}_${DateTime.now().millisecondsSinceEpoch}',
       userId: user.id,
       type: _selectedType,
       amount: amount,
@@ -153,12 +156,19 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
           : _descController.text.trim(),
       date: _selectedDate,
     );
-    await ref.read(databaseServiceProvider).insertMoney(record);
+
+    if (_editingRecordId != null) {
+      await ref.read(databaseServiceProvider).updateMoney(record);
+    } else {
+      await ref.read(databaseServiceProvider).insertMoney(record);
+    }
+
     ref.invalidate(moneyRecordsProvider(user.id));
     ref.invalidate(totalSavedProvider(user.id));
     ref.invalidate(totalDailyEarningsProvider(user.id));
     setState(() {
       _saving = false;
+      _editingRecordId = null;
       _selectedType = moneyTypes.first;
       _amountController.clear();
       _yieldController.clear();
@@ -166,10 +176,38 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
       _selectedDate = DateTime.now();
     });
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Registro guardado')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _editingRecordId != null
+                ? 'Registro actualizado'
+                : 'Registro guardado',
+          ),
+        ),
+      );
     }
+  }
+
+  void _editRecord(MoneyRecord record) {
+    setState(() {
+      _editingRecordId = record.id;
+      _selectedType = record.type;
+      _amountController.text = record.amount.toString();
+      _yieldController.text = record.annualYield.toString();
+      _descController.text = record.description ?? '';
+      _selectedDate = record.date;
+    });
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      _editingRecordId = null;
+      _selectedType = moneyTypes.first;
+      _amountController.clear();
+      _yieldController.clear();
+      _descController.clear();
+      _selectedDate = DateTime.now();
+    });
   }
 
   Future<void> _pickDate() async {
@@ -427,22 +465,51 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
                 ),
               ),
               SizedBox(height: r.cardSpacing + 2),
-              SizedBox(
-                height: r.buttonHeight,
-                child: ElevatedButton.icon(
-                  onPressed: _saving ? null : _save,
-                  icon: _saving
-                      ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: theme.colorScheme.onPrimary,
-                          ),
-                        )
-                      : const Icon(Icons.save),
-                  label: Text(_saving ? 'Guardando...' : 'Guardar registro'),
-                ),
+              Row(
+                children: [
+                  if (_editingRecordId != null) ...[
+                    Expanded(
+                      child: SizedBox(
+                        height: r.buttonHeight,
+                        child: OutlinedButton(
+                          onPressed: _cancelEdit,
+                          child: const Text('Cancelar'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    flex: 2,
+                    child: SizedBox(
+                      height: r.buttonHeight,
+                      child: ElevatedButton.icon(
+                        onPressed: _saving ? null : _save,
+                        icon: _saving
+                            ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: theme.colorScheme.onPrimary,
+                                ),
+                              )
+                            : Icon(
+                                _editingRecordId != null
+                                    ? Icons.save_as
+                                    : Icons.save,
+                              ),
+                        label: Text(
+                          _saving
+                              ? 'Guardando...'
+                              : (_editingRecordId != null
+                                    ? 'Actualizar'
+                                    : 'Guardar registro'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -617,19 +684,37 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
                               ],
                             ),
                           ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.delete_outline,
-                              color: neon,
-                              size: 20,
-                            ),
-                            onPressed: () async {
-                              if (user == null) return;
-                              await ref
-                                  .read(databaseServiceProvider)
-                                  .deleteMoney(rec.id);
-                              ref.invalidate(moneyRecordsProvider(user.id));
-                              ref.invalidate(totalSavedProvider(user.id));
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  Icons.edit_outlined,
+                                  color: neon2,
+                                  size: 20,
+                                ),
+                                onPressed: () => _editRecord(rec),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: neon,
+                                  size: 20,
+                                ),
+                                onPressed: () async {
+                                  if (user == null) return;
+                                  await ref
+                                      .read(databaseServiceProvider)
+                                      .deleteMoney(rec.id);
+                                  ref.invalidate(moneyRecordsProvider(user.id));
+                                  ref.invalidate(totalSavedProvider(user.id));
+                                  ref.invalidate(
+                                    totalDailyEarningsProvider(user.id),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                               ref.invalidate(
                                 totalDailyEarningsProvider(user.id),
                               );

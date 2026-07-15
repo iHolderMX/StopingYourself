@@ -222,6 +222,12 @@ class DatabaseService {
     } catch (_) {}
   }
 
+  Future<void> updateMoney(MoneyRecord record) async {
+    try {
+      await _client.from('money_records').update(record.toJson()).eq('id', record.id);
+    } catch (_) {}
+  }
+
   Future<void> deleteMoney(String id) async {
     try {
       await _client.from('money_records').delete().eq('id', id);
