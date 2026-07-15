@@ -224,7 +224,10 @@ class DatabaseService {
 
   Future<void> updateMoney(MoneyRecord record) async {
     try {
-      await _client.from('money_records').update(record.toJson()).eq('id', record.id);
+      await _client
+          .from('money_records')
+          .update(record.toJson())
+          .eq('id', record.id);
     } catch (_) {}
   }
 
@@ -601,6 +604,10 @@ class DatabaseService {
 
   Future<void> deleteMonthlyPayment(String id) async {
     await _client.from('monthly_payments').delete().eq('id', id);
+  }
+
+  Future<void> deleteAllMonthlyPayments(String userId) async {
+    await _client.from('monthly_payments').delete().eq('user_id', userId);
   }
 
   Future<double> getTotalMonthlyPayments(String userId) async {

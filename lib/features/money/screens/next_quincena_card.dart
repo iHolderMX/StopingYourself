@@ -33,19 +33,19 @@ class NextQuincenaCard extends ConsumerWidget {
     if (user == null) return const SizedBox.shrink();
 
     final debtsAsync = ref.watch(debtsProvider(user.id));
-    final fixedAsync = ref.watch(fixedExpensesProvider(user.id));
+    // final fixedAsync = ref.watch(fixedExpensesProvider(user.id));
     final salaryAsync = ref.watch(salarySettingProvider(user.id));
     final monthlyAsync = ref.watch(_monthlyPaymentsProvider(user.id));
     final dailyEarningsAsync = ref.watch(_totalDailyEarningsProvider(user.id));
 
     final debts = debtsAsync.asData?.value ?? [];
-    final fixedExpenses = fixedAsync.asData?.value ?? [];
+    // final fixedExpenses = fixedAsync.asData?.value ?? [];
     final monthlySalary = salaryAsync.asData?.value?.monthlySalary ?? 0;
     final dailyReturn = dailyEarningsAsync.asData?.value ?? 0;
     final monthlyPayments = monthlyAsync.asData?.value ?? [];
 
-    final totalFixed = fixedExpenses.fold<double>(0, (s, e) => s + e.amount);
-    final quincenaFixed = totalFixed / 2;
+    // final totalFixed = fixedExpenses.fold<double>(0, (s, e) => s + e.amount);
+    // final quincenaFixed = totalFixed / 2; // Oculto temporalmente por petición del usuario
 
     final now = DateTime.now();
     final quincenaLimit = now.add(const Duration(days: 15));
@@ -66,17 +66,28 @@ class NextQuincenaCard extends ConsumerWidget {
     final totalAhorro = monthlyPayments
         .where((p) => p.type == 'ahorro')
         .fold<double>(0, (s, p) => s + p.amount);
+    final totalPapas = monthlyPayments
+        .where((p) => p.type == 'papas')
+        .fold<double>(0, (s, p) => s + p.amount);
+    final totalRenta = monthlyPayments
+        .where((p) => p.type == 'renta')
+        .fold<double>(0, (s, p) => s + p.amount);
 
     final totalComprometido =
-        quincenaFixed + debtPayments + totalCreditosMes + totalAhorro;
+        debtPayments + totalCreditosMes + totalAhorro + totalPapas + totalRenta;
     final quincenaSalary = monthlySalary / 2;
     final disponible = (quincenaSalary - totalComprometido)
         .clamp(0.0, double.infinity)
         .toDouble();
 
-    final libreDonut = (quincenaSalary - totalCreditosMes - totalAhorro)
-        .clamp(0.0, double.infinity)
-        .toDouble();
+    final libreDonut =
+        (quincenaSalary -
+                totalCreditosMes -
+                totalAhorro -
+                totalPapas -
+                totalRenta)
+            .clamp(0.0, double.infinity)
+            .toDouble();
 
     final theme = Theme.of(context);
     final r = ResponsiveHelper(context);
@@ -110,21 +121,46 @@ class NextQuincenaCard extends ConsumerWidget {
                   color: neon2,
                 ),
               ),
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.refresh, color: neon2),
+                tooltip: 'Restablecer valores',
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Restablecer valores'),
+                      content: const Text(
+                        '¿Estás seguro de que deseas eliminar todos los registros de la próxima quincena (créditos, ahorro, papás, renta)?',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancelar'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text(
+                            'Restablecer',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    await ref
+                        .read(databaseServiceProvider)
+                        .deleteAllMonthlyPayments(user.id);
+                    ref.invalidate(_monthlyPaymentsProvider(user.id));
+                  }
+                },
+              ),
             ],
           ),
           SizedBox(height: r.cardSpacing),
           Row(
             children: [
-              Expanded(
-                child: _MetricTile(
-                  icon: Icons.receipt_long_outlined,
-                  label: 'Gastos fijos',
-                  value: '\$${quincenaFixed.toStringAsFixed(2)}',
-                  color: neon2,
-                  r: r,
-                ),
-              ),
-              SizedBox(width: r.cardSpacing - 4),
               Expanded(
                 child: _MetricTile(
                   icon: Icons.credit_card_outlined,
@@ -157,21 +193,6 @@ class NextQuincenaCard extends ConsumerWidget {
               SizedBox(width: r.cardSpacing - 4),
               Expanded(
                 child: _MetricTile(
-                  icon: Icons.lock_outline,
-                  label: 'Comprometido',
-                  value: '\$${totalComprometido.toStringAsFixed(2)}',
-                  color: totalComprometido > 0 ? neon : neon2,
-                  r: r,
-                  bold: true,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: r.cardSpacing - 4),
-          Row(
-            children: [
-              Expanded(
-                child: _MetricTile(
                   icon: Icons.shield_outlined,
                   label: 'Ahorro Asegurado',
                   value: '\$${totalAhorro.toStringAsFixed(2)}',
@@ -183,6 +204,57 @@ class NextQuincenaCard extends ConsumerWidget {
                     user.id,
                     'ahorro',
                   ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: r.cardSpacing - 4),
+          Row(
+            children: [
+              Expanded(
+                child: _MetricTile(
+                  icon: Icons.family_restroom,
+                  label: 'Papas',
+                  value: '\$${totalPapas.toStringAsFixed(2)}',
+                  color: Colors.blue,
+                  r: r,
+                  onTap: () => _showMonthlyPaymentsDialog(
+                    context,
+                    ref,
+                    user.id,
+                    'papas',
+                  ),
+                ),
+              ),
+              SizedBox(width: r.cardSpacing - 4),
+              Expanded(
+                child: _MetricTile(
+                  icon: Icons.home_outlined,
+                  label: 'Renta',
+                  value: '\$${totalRenta.toStringAsFixed(2)}',
+                  color: Colors.redAccent,
+                  r: r,
+                  onTap: () => _showMonthlyPaymentsDialog(
+                    context,
+                    ref,
+                    user.id,
+                    'renta',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: r.cardSpacing - 4),
+          Row(
+            children: [
+              Expanded(
+                child: _MetricTile(
+                  icon: Icons.lock_outline,
+                  label: 'Comprometido',
+                  value: '\$${totalComprometido.toStringAsFixed(2)}',
+                  color: totalComprometido > 0 ? neon : neon2,
+                  r: r,
+                  bold: true,
                 ),
               ),
               SizedBox(width: r.cardSpacing - 4),
@@ -209,8 +281,11 @@ class NextQuincenaCard extends ConsumerWidget {
             SizedBox(height: r.cardSpacing),
             _QuincenaDonut(
               quincenaSalary: quincenaSalary,
+              debtPayments: debtPayments,
               creditos: totalCreditosMes,
               ahorro: totalAhorro,
+              papas: totalPapas,
+              renta: totalRenta,
               theme: theme,
               r: r,
             ),
@@ -435,24 +510,36 @@ class _MetricTile extends StatelessWidget {
 
 class _QuincenaDonut extends StatelessWidget {
   final double quincenaSalary;
+  final double debtPayments;
   final double creditos;
   final double ahorro;
+  final double papas;
+  final double renta;
   final ThemeData theme;
   final ResponsiveHelper r;
 
   const _QuincenaDonut({
     required this.quincenaSalary,
+    required this.debtPayments,
     required this.creditos,
     required this.ahorro,
+    required this.papas,
+    required this.renta,
     required this.theme,
     required this.r,
   });
 
   @override
   Widget build(BuildContext context) {
-    final libre = (quincenaSalary - creditos - ahorro)
-        .clamp(0.0, double.infinity)
-        .toDouble();
+    final libre =
+        (quincenaSalary - debtPayments - creditos - ahorro - papas - renta)
+            .clamp(0.0, double.infinity)
+            .toDouble();
+    final debtPct =
+        (quincenaSalary > 0
+                ? (debtPayments / quincenaSalary * 100).clamp(0.0, 100.0)
+                : 0.0)
+            .toDouble();
     final credPct =
         (quincenaSalary > 0
                 ? (creditos / quincenaSalary * 100).clamp(0.0, 100.0)
@@ -463,7 +550,20 @@ class _QuincenaDonut extends StatelessWidget {
                 ? (ahorro / quincenaSalary * 100).clamp(0.0, 100.0)
                 : 0.0)
             .toDouble();
-    final librePct = (100.0 - credPct - ahorroPct).clamp(0.0, 100.0).toDouble();
+    final papasPct =
+        (quincenaSalary > 0
+                ? (papas / quincenaSalary * 100).clamp(0.0, 100.0)
+                : 0.0)
+            .toDouble();
+    final rentaPct =
+        (quincenaSalary > 0
+                ? (renta / quincenaSalary * 100).clamp(0.0, 100.0)
+                : 0.0)
+            .toDouble();
+    final librePct =
+        (100.0 - debtPct - credPct - ahorroPct - papasPct - rentaPct)
+            .clamp(0.0, 100.0)
+            .toDouble();
 
     return Row(
       children: [
@@ -472,8 +572,11 @@ class _QuincenaDonut extends StatelessWidget {
           height: 80,
           child: CustomPaint(
             painter: _DonutPainter(
+              debtPct: debtPct,
               credPct: credPct,
               ahorroPct: ahorroPct,
+              papasPct: papasPct,
+              rentaPct: rentaPct,
               librePct: librePct,
             ),
             child: Center(
@@ -497,10 +600,19 @@ class _QuincenaDonut extends StatelessWidget {
                 'Quincena: \$${quincenaSalary.toStringAsFixed(0)}',
                 style: GoogleFonts.inter(
                   fontSize: r.bodyFontSize - 1,
+                  fontWeight: FontWeight.w600,
                   color: theme.colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 4),
+              if (debtPayments > 0)
+                _Legend(
+                  color: Colors.red,
+                  label: 'Pagos deudas',
+                  amount: debtPayments,
+                  pct: debtPct,
+                  r: r,
+                ),
               _Legend(
                 color: Colors.orange,
                 label: 'Creditos',
@@ -515,13 +627,28 @@ class _QuincenaDonut extends StatelessWidget {
                 pct: ahorroPct,
                 r: r,
               ),
+              if (papas > 0)
+                _Legend(
+                  color: Colors.blue,
+                  label: 'Papas',
+                  amount: papas,
+                  pct: papasPct,
+                  r: r,
+                ),
+              if (renta > 0)
+                _Legend(
+                  color: Colors.redAccent,
+                  label: 'Renta',
+                  amount: renta,
+                  pct: rentaPct,
+                  r: r,
+                ),
               _Legend(
                 color: Colors.green,
                 label: 'Libre',
                 amount: libre,
                 pct: librePct,
                 r: r,
-                bold: true,
               ),
             ],
           ),
@@ -575,13 +702,19 @@ class _Legend extends StatelessWidget {
 }
 
 class _DonutPainter extends CustomPainter {
+  final double debtPct;
   final double credPct;
   final double ahorroPct;
+  final double papasPct;
+  final double rentaPct;
   final double librePct;
 
   _DonutPainter({
+    required this.debtPct,
     required this.credPct,
     required this.ahorroPct,
+    required this.papasPct,
+    required this.rentaPct,
     required this.librePct,
   });
 
@@ -598,8 +731,11 @@ class _DonutPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final slices = [
+      (debtPct, makePaint(Colors.red)),
       (credPct, makePaint(Colors.orange)),
       (ahorroPct, makePaint(Colors.purple)),
+      (papasPct, makePaint(Colors.blue)),
+      (rentaPct, makePaint(Colors.redAccent)),
       (librePct, makePaint(Colors.green)),
     ];
 
@@ -619,8 +755,11 @@ class _DonutPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _DonutPainter old) =>
+      debtPct != old.debtPct ||
       credPct != old.credPct ||
       ahorroPct != old.ahorroPct ||
+      papasPct != old.papasPct ||
+      rentaPct != old.rentaPct ||
       librePct != old.librePct;
 }
 
@@ -630,100 +769,139 @@ void _showMonthlyPaymentsDialog(
   String userId,
   String type,
 ) {
-  final title = type == 'ahorro' ? 'Ahorro Asegurado' : 'Creditos Mensuales';
-  final color = type == 'ahorro' ? Colors.purple : Colors.orange;
-  final icon = type == 'ahorro'
-      ? Icons.shield_outlined
-      : Icons.credit_score_outlined;
+  String title = '';
+  Color color = Colors.grey;
+  IconData icon = Icons.attach_money;
+
+  switch (type) {
+    case 'ahorro':
+      title = 'Ahorro Asegurado';
+      color = Colors.purple;
+      icon = Icons.shield_outlined;
+      break;
+    case 'credito':
+      title = 'Créditos Mensuales';
+      color = Colors.orange;
+      icon = Icons.credit_score_outlined;
+      break;
+    case 'papas':
+      title = 'Papas';
+      color = Colors.blue;
+      icon = Icons.family_restroom;
+      break;
+    case 'renta':
+      title = 'Renta';
+      color = Colors.redAccent;
+      icon = Icons.home_outlined;
+      break;
+  }
 
   showDialog(
     context: context,
     builder: (ctx) {
-      final paymentsAsync = ref.watch(_monthlyPaymentsProvider(userId));
       return Dialog(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(icon, color: color),
-                    const SizedBox(width: 8),
-                    Text(
-                      title,
-                      style: GoogleFonts.outfit(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Flexible(
-                child: paymentsAsync.when(
-                  data: (payments) {
-                    final filtered = payments
-                        .where((p) => p.type == type)
-                        .toList();
-                    if (filtered.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Text('No hay registros todavia.'),
-                      );
-                    }
-                    return ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: filtered.length,
-                      itemBuilder: (_, i) {
-                        final p = filtered[i];
-                        return ListTile(
-                          title: Text(p.name),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '\$${p.amount.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.red,
-                                ),
-                                onPressed: () async {
-                                  await ref
-                                      .read(databaseServiceProvider)
-                                      .deleteMonthlyPayment(p.id);
-                                  ref.invalidate(
-                                    _monthlyPaymentsProvider(userId),
-                                  );
-                                },
-                              ),
-                            ],
+          child: Consumer(
+            builder: (context, ref, child) {
+              final paymentsAsync = ref.watch(_monthlyPaymentsProvider(userId));
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(icon, color: color),
+                        const SizedBox(width: 8),
+                        Text(
+                          title,
+                          style: GoogleFonts.outfit(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
                           ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Flexible(
+                    child: paymentsAsync.when(
+                      data: (payments) {
+                        final filtered = payments
+                            .where((p) => p.type == type)
+                            .toList();
+                        if (filtered.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Text('No hay registros todavia.'),
+                          );
+                        }
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: filtered.length,
+                          itemBuilder: (_, i) {
+                            final p = filtered[i];
+                            return ListTile(
+                              title: Text(p.name),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '\$${p.amount.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: () async {
+                                      try {
+                                        await ref
+                                            .read(databaseServiceProvider)
+                                            .deleteMonthlyPayment(p.id);
+                                        ref.invalidate(
+                                          _monthlyPaymentsProvider(userId),
+                                        );
+                                      } catch (e) {
+                                        if (ctx.mounted) {
+                                          ScaffoldMessenger.of(
+                                            ctx,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Error al eliminar: $e',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         );
                       },
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Text('Error: $e'),
-                ),
-              ),
-              const Divider(height: 1),
-              _AddMonthlyPaymentRow(userId: userId, type: type),
-            ],
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Text('Error: $e'),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  _AddMonthlyPaymentRow(userId: userId, type: type),
+                ],
+              );
+            },
           ),
         ),
       );
@@ -819,6 +997,12 @@ class _AddMonthlyPaymentRowState extends ConsumerState<_AddMonthlyPaymentRow> {
 
   @override
   Widget build(BuildContext context) {
+    String labelText = 'Nombre';
+    if (widget.type == 'ahorro') labelText = 'Nombre del ahorro';
+    if (widget.type == 'credito') labelText = 'Nombre (ej: Tarjeta X)';
+    if (widget.type == 'papas') labelText = 'Concepto (ej: Despensa)';
+    if (widget.type == 'renta') labelText = 'Concepto (ej: Renta mes)';
+
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -827,12 +1011,7 @@ class _AddMonthlyPaymentRowState extends ConsumerState<_AddMonthlyPaymentRow> {
             flex: 2,
             child: TextField(
               controller: _nameCtrl,
-              decoration: InputDecoration(
-                labelText: widget.type == 'ahorro'
-                    ? 'Nombre del ahorro'
-                    : 'Nombre (ej: Tarjeta X)',
-                isDense: true,
-              ),
+              decoration: InputDecoration(labelText: labelText, isDense: true),
             ),
           ),
           const SizedBox(width: 8),
