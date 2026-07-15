@@ -197,6 +197,14 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
       _descController.text = record.description ?? '';
       _selectedDate = record.date;
     });
+
+    // Hacer scroll hacia arriba para ver el formulario
+    Scrollable.ensureVisible(
+      context,
+      alignment: 0.0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   void _cancelEdit() {
