@@ -715,11 +715,6 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
                               ),
                             ],
                           ),
-                              ref.invalidate(
-                                totalDailyEarningsProvider(user.id),
-                              );
-                            },
-                          ),
                         ],
                       ),
                     ),
@@ -728,7 +723,7 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
               );
             },
           ),
-        SizedBox(height: 40),
+        const SizedBox(height: 40),
       ],
     );
 

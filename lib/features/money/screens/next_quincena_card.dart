@@ -27,72 +27,6 @@ final _totalDailyEarningsProvider = FutureProvider.family<double, String>(
 class NextQuincenaCard extends ConsumerWidget {
   const NextQuincenaCard({super.key});
 
-  Future<void> _avanzarQuincena(
-    BuildContext context,
-    WidgetRef ref,
-    String userId,
-    List<Debt> debts,
-  ) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('¿Avanzar Quincena?'),
-        content: const Text(
-          'Esto aplicará un 5% de interés a tus deudas vinculadas al ahorro (Préstamos del ahorro). ¿Deseas continuar?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Avanzar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    final db = ref.read(databaseServiceProvider);
-    int updatedCount = 0;
-
-    for (final debt in debts) {
-      if (debt.isLinkedToSavings && debt.currentBalance > 0) {
-        final newBalance = debt.currentBalance * 1.05; // +5%
-        final updatedDebt = Debt(
-          id: debt.id,
-          userId: debt.userId,
-          name: debt.name,
-          debtType: debt.debtType,
-          linkedTo: debt.linkedTo,
-          initialAmount: debt.initialAmount,
-          currentBalance: newBalance,
-          interestRate: debt.interestRate,
-          paymentPeriodDays: debt.paymentPeriodDays,
-          minPayment: debt.minPayment,
-          gracePeriodDays: debt.gracePeriodDays,
-          startDate: debt.startDate,
-          createdAt: debt.createdAt,
-        );
-        await db.updateDebt(updatedDebt);
-        updatedCount++;
-      }
-    }
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Quincena avanzada. Se actualizó el saldo de $updatedCount deuda(s).',
-          ),
-        ),
-      );
-    }
-    ref.invalidate(debtsProvider(userId));
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(supabaseClientProvider).auth.currentUser;
@@ -174,21 +108,6 @@ class NextQuincenaCard extends ConsumerWidget {
                   fontSize: r.subtitleFontSize + 2,
                   fontWeight: FontWeight.w600,
                   color: neon2,
-                ),
-              ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: () => _avanzarQuincena(context, ref, user.id, debts),
-                icon: const Icon(Icons.fast_forward, size: 18),
-                label: const Text('Avanzar'),
-                style: TextButton.styleFrom(
-                  foregroundColor: neon2,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),
             ],

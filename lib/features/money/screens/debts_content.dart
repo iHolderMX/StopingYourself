@@ -48,6 +48,74 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
     super.dispose();
   }
 
+  Future<void> _avanzarQuincena(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+    List<Debt> debts,
+  ) async {
+    if (userId.isEmpty || debts.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Avanzar Quincena?'),
+        content: const Text(
+          'Esto aplicará un 5% de interés a tus deudas vinculadas al ahorro (Préstamos del ahorro). ¿Deseas continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Avanzar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final db = ref.read(databaseServiceProvider);
+    int updatedCount = 0;
+
+    for (final debt in debts) {
+      if (debt.isLinkedToSavings && debt.currentBalance > 0) {
+        final newBalance = debt.currentBalance * 1.05; // +5%
+        final updatedDebt = Debt(
+          id: debt.id,
+          userId: debt.userId,
+          name: debt.name,
+          debtType: debt.debtType,
+          linkedTo: debt.linkedTo,
+          initialAmount: debt.initialAmount,
+          currentBalance: newBalance,
+          interestRate: debt.interestRate,
+          paymentPeriodDays: debt.paymentPeriodDays,
+          minPayment: debt.minPayment,
+          gracePeriodDays: debt.gracePeriodDays,
+          startDate: debt.startDate,
+          createdAt: debt.createdAt,
+        );
+        await db.updateDebt(updatedDebt);
+        updatedCount++;
+      }
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Quincena avanzada. Se actualizó el saldo de $updatedCount deuda(s).',
+          ),
+        ),
+      );
+    }
+    ref.invalidate(debtsProvider(userId));
+  }
+
   Future<void> _save() async {
     final user = ref.read(supabaseClientProvider).auth.currentUser;
     if (user == null) return;
@@ -301,7 +369,11 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.summarize, color: Colors.white, size: r.iconSizeMedium),
+                        Icon(
+                          Icons.summarize,
+                          color: Colors.white,
+                          size: r.iconSizeMedium,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Total Deudas',
@@ -393,8 +465,7 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
             },
           ),
 
-        if (debtsAsync != null &&
-            (debtsAsync.asData?.value ?? []).isNotEmpty)
+        if (debtsAsync != null && (debtsAsync.asData?.value ?? []).isNotEmpty)
           SizedBox(height: r.cardSpacing + 12),
 
         // --- Formulario ---
@@ -735,13 +806,34 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
         SizedBox(height: r.cardSpacing + 12),
 
         // --- Lista de deudas ---
-        Text(
-          'Mis deudas',
-          style: GoogleFonts.outfit(
-            fontSize: r.subtitleFontSize + 2,
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Mis deudas',
+              style: GoogleFonts.outfit(
+                fontSize: r.subtitleFontSize + 2,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => _avanzarQuincena(
+                context,
+                ref,
+                user?.id ?? '',
+                debtsAsync?.asData?.value ?? [],
+              ),
+              icon: const Icon(Icons.fast_forward, size: 18),
+              label: const Text('Avanzar Quincena'),
+              style: TextButton.styleFrom(
+                foregroundColor: neon,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
         ),
         SizedBox(height: r.cardSpacing - 4),
 
