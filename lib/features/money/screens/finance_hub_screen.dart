@@ -23,22 +23,13 @@ class FinanceHubScreen extends ConsumerStatefulWidget {
   ConsumerState<FinanceHubScreen> createState() => _FinanceHubScreenState();
 }
 
-class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
   bool _compactMode = false;
-  bool _summaryExpanded = false; // Para colapsar/expandir resumen en móvil
+  bool _summaryExpanded = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   @override
@@ -228,192 +219,100 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen>
       );
     }
 
-    // Mobile / Tablet: drawer ya maneja navegación, aquí solo el contenido
-    return NestedScrollView(
-      headerSliverBuilder: (context, innerBoxIsScrolled) {
-        return [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: r.padHorizontal,
-                right: r.padHorizontal,
-                top: r.padVertical,
+    // Mobile / Tablet: todo en scroll simple, sin headers fijos
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        left: r.padHorizontal,
+        right: r.padHorizontal,
+        top: r.padVertical + 8,
+        bottom: r.padVertical + 24,
+      ),
+      child: Column(
+        children: [
+          // Barra colapsable para el resumen financiero
+          GestureDetector(
+            onTap: () => setState(() => _summaryExpanded = !_summaryExpanded),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: r.cardSpacing - 4,
+                vertical: r.cardSpacing - 6,
               ),
-              child: Column(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(r.borderRadius - 2),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
                 children: [
-                  // Barra colapsable para el resumen financiero
-                  GestureDetector(
-                    onTap: () =>
-                        setState(() => _summaryExpanded = !_summaryExpanded),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: r.cardSpacing - 4,
-                        vertical: r.cardSpacing - 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(
-                          alpha: 0.08,
-                        ),
-                        borderRadius: BorderRadius.circular(r.borderRadius - 2),
-                        border: Border.all(
-                          color: theme.colorScheme.primary.withValues(
-                            alpha: 0.2,
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.account_balance_wallet_outlined,
-                            color: theme.colorScheme.primary,
-                            size: r.iconSizeMedium - 2,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Resumen Financiero',
-                            style: GoogleFonts.outfit(
-                              fontSize: r.subtitleFontSize,
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                          const Spacer(),
-                          // Info rápida visible siempre
-                          if (!_summaryExpanded && monthlySalary > 0)
-                            Text(
-                              '\$${(monthlySalary / 2).toStringAsFixed(0)} libres',
-                              style: GoogleFonts.inter(
-                                fontSize: r.bodyFontSize - 2,
-                                color: Colors.green,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          const SizedBox(width: 8),
-                          AnimatedRotation(
-                            turns: _summaryExpanded ? 0.5 : 0,
-                            duration: const Duration(milliseconds: 200),
-                            child: Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              color: theme.colorScheme.primary,
-                              size: r.iconSizeMedium,
-                            ),
-                          ),
-                        ],
-                      ),
+                  Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: theme.colorScheme.primary,
+                    size: r.iconSizeMedium - 2,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Resumen Financiero',
+                    style: GoogleFonts.outfit(
+                      fontSize: r.subtitleFontSize,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.primary,
                     ),
                   ),
-                  // Contenido colapsable
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                    alignment: Alignment.topCenter,
-                    child: _summaryExpanded
-                        ? Column(
-                            children: [
-                              SizedBox(height: r.cardSpacing),
-                              salaryCard,
-                              SizedBox(height: r.cardSpacing - 4),
-                              const NextQuincenaCard(),
-                              SizedBox(height: r.cardSpacing - 4),
-                            ],
-                          )
-                        : const SizedBox.shrink(),
+                  const Spacer(),
+                  if (!_summaryExpanded && monthlySalary > 0)
+                    Text(
+                      '\$${(monthlySalary / 2).toStringAsFixed(0)} libres',
+                      style: GoogleFonts.inter(
+                        fontSize: r.bodyFontSize - 2,
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  AnimatedRotation(
+                    turns: _summaryExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: theme.colorScheme.primary,
+                      size: r.iconSizeMedium,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-          if (_compactMode)
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _TabBarDelegate(
-                TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  labelStyle: GoogleFonts.inter(
-                    fontSize: r.bodyFontSize,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  unselectedLabelStyle: GoogleFonts.inter(
-                    fontSize: r.bodyFontSize,
-                  ),
-                  tabs: const [
-                    Tab(icon: Icon(Icons.savings_outlined), text: 'Ahorros'),
-                    Tab(
-                      icon: Icon(Icons.receipt_long_outlined),
-                      text: 'Gastos',
-                    ),
-                    Tab(
-                      icon: Icon(Icons.account_balance_outlined),
-                      text: 'Deudas',
-                    ),
-                    Tab(icon: Icon(Icons.star_outline), text: 'Metas'),
-                    Tab(icon: Icon(Icons.bar_chart_outlined), text: 'Graficas'),
-                  ],
-                ),
-              ),
-            ),
-        ];
-      },
-      body: _compactMode
-          ? TabBarView(
-              controller: _tabController,
-              children: [
-                const MoneyTrackingScreen(),
-                const FixedExpensesContent(),
-                DebtsContent(totalSaved: saved),
-                const SavingGoalsContent(),
-                SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: r.padHorizontal,
-                    vertical: r.padVertical / 2,
-                  ),
-                  child: charts,
-                ),
-              ],
-            )
-          : SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
-              child: Column(
-                children: [
-                  const MoneyTrackingScreen(compact: false),
-                  SizedBox(height: r.cardSpacing + 8),
-                  const FixedExpensesContent(compact: false),
-                  SizedBox(height: r.cardSpacing + 8),
-                  DebtsContent(compact: false, totalSaved: saved),
-                  SizedBox(height: r.cardSpacing + 8),
-                  const SavingGoalsContent(compact: false),
-                  SizedBox(height: r.cardSpacing + 8),
-                  charts,
-                ],
-              ),
-            ),
+          // Contenido colapsable
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: _summaryExpanded
+                ? Column(
+                    children: [
+                      SizedBox(height: r.cardSpacing - 2),
+                      salaryCard,
+                      SizedBox(height: r.cardSpacing - 4),
+                      const NextQuincenaCard(),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+          SizedBox(height: r.cardSpacing + 4),
+          // Secciones de contenido, todas scrolleables
+          const MoneyTrackingScreen(compact: false),
+          SizedBox(height: r.cardSpacing + 8),
+          const FixedExpensesContent(compact: false),
+          SizedBox(height: r.cardSpacing + 8),
+          DebtsContent(compact: false, totalSaved: saved),
+          SizedBox(height: r.cardSpacing + 8),
+          const SavingGoalsContent(compact: false),
+          SizedBox(height: r.cardSpacing + 8),
+          charts,
+        ],
+      ),
     );
   }
-}
-
-class _TabBarDelegate extends SliverPersistentHeaderDelegate {
-  final TabBar tabBar;
-  _TabBarDelegate(this.tabBar);
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return Container(
-      color: Theme.of(context).colorScheme.surface,
-      child: tabBar,
-    );
-  }
-
-  @override
-  double get maxExtent => tabBar.preferredSize.height;
-
-  @override
-  double get minExtent => tabBar.preferredSize.height;
-
-  @override
-  bool shouldRebuild(covariant _TabBarDelegate oldDelegate) => false;
 }
