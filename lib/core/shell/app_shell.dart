@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../main.dart';
-import '../../../core/utils/responsive_helper.dart';
+import '../../core/utils/responsive_helper.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   final Widget child;
@@ -15,6 +16,7 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   int _selectedIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   void _onDestinationSelected(int index) {
     setState(() => _selectedIndex = index);
@@ -29,6 +31,10 @@ class _AppShellState extends ConsumerState<AppShell> {
       '/profile',
     ];
     context.go(routes[index]);
+    // Cerrar drawer si está abierto
+    if (_scaffoldKey.currentState?.isEndDrawerOpen ?? false) {
+      Navigator.pop(context);
+    }
   }
 
   @override
@@ -46,8 +52,9 @@ class _AppShellState extends ConsumerState<AppShell> {
             child: widget.child,
           );
         }
-        return _MobileLayout(
+        return _MobileDrawerLayout(
           theme: theme,
+          scaffoldKey: _scaffoldKey,
           selectedIndex: _selectedIndex,
           onSelect: _onDestinationSelected,
           child: widget.child,
@@ -156,93 +163,152 @@ class _DesktopLayout extends ConsumerWidget {
   }
 }
 
-class _MobileLayout extends ConsumerWidget {
+class _MobileDrawerLayout extends ConsumerWidget {
   final ThemeData theme;
+  final GlobalKey<ScaffoldState> scaffoldKey;
   final int selectedIndex;
   final void Function(int) onSelect;
   final Widget child;
 
-  const _MobileLayout({
+  const _MobileDrawerLayout({
     required this.theme,
+    required this.scaffoldKey,
     required this.selectedIndex,
     required this.onSelect,
     required this.child,
   });
 
+  static const _navItems = [
+    (Icons.home_outlined, Icons.home_rounded, 'Inicio'),
+    (Icons.school_outlined, Icons.school_rounded, 'Aprender'),
+    (Icons.warning_amber_outlined, Icons.warning_amber_rounded, 'Recaidas'),
+    (Icons.savings_outlined, Icons.savings_rounded, 'Finanzas'),
+    (Icons.fitness_center_outlined, Icons.fitness_center, 'Salud'),
+    (Icons.checklist_outlined, Icons.checklist_rounded, 'Tareas'),
+    (Icons.sports_esports_outlined, Icons.sports_esports, 'Juegos'),
+    (Icons.person_outline, Icons.person, 'Perfil'),
+  ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = theme.brightness == Brightness.dark;
+    final neon = theme.colorScheme.primary;
+
     return Scaffold(
+      key: scaffoldKey,
+      endDrawer: Drawer(
+        backgroundColor: theme.colorScheme.surface,
+        width: 260,
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header del drawer
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.shield_outlined, color: neon, size: 28),
+                    const SizedBox(width: 12),
+                    Text(
+                      'StopingYourself',
+                      style: GoogleFonts.outfit(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: Icon(Icons.close, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              const SizedBox(height: 8),
+              // Lista de navegación
+              ...List.generate(_navItems.length, (i) {
+                final (iconOutlined, iconFilled, label) = _navItems[i];
+                final selected = selectedIndex == i;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  child: Material(
+                    color: selected ? neon.withValues(alpha: 0.12) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => onSelect(i),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              selected ? iconFilled : iconOutlined,
+                              color: selected ? neon : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 14),
+                            Text(
+                              label,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                                color: selected ? neon : theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              const Spacer(),
+              // Toggle de tema
+              const Divider(),
+              ListTile(
+                leading: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: neon,
+                ),
+                title: Text(
+                  isDark ? 'Tema claro' : 'Tema oscuro',
+                  style: GoogleFonts.inter(color: theme.colorScheme.onSurface),
+                ),
+                onTap: () {
+                  ref.read(themeModeProvider.notifier).toggle();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
       body: Stack(
         children: [
           child,
+          // Botón de menú hamburguesa (esquina superior derecha)
           Positioned(
             top: 8,
-            right: 8,
+            right: 4,
             child: Material(
               color: theme.colorScheme.surface.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
-                onTap: () => ref.read(themeModeProvider.notifier).toggle(),
+                onTap: () => scaffoldKey.currentState?.openEndDrawer(),
                 child: Padding(
                   padding: const EdgeInsets.all(10),
                   child: Icon(
-                    isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                    Icons.menu_rounded,
                     color: theme.colorScheme.primary,
                     size: 24,
                   ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: onSelect,
-        height: 64,
-        indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.15),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Inicio',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.school_outlined),
-            selectedIcon: Icon(Icons.school_rounded),
-            label: 'Aprender',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.warning_amber_outlined),
-            selectedIcon: Icon(Icons.warning_amber_rounded),
-            label: 'Recaidas',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.savings_outlined),
-            selectedIcon: Icon(Icons.savings_rounded),
-            label: 'Finanzas',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.fitness_center_outlined),
-            selectedIcon: Icon(Icons.fitness_center),
-            label: 'Salud',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.checklist_outlined),
-            selectedIcon: Icon(Icons.checklist_rounded),
-            label: 'Tareas',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.sports_esports_outlined),
-            selectedIcon: Icon(Icons.sports_esports),
-            label: 'Juegos',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Perfil',
           ),
         ],
       ),
