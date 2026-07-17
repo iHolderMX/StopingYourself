@@ -137,6 +137,20 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
       return;
     }
 
+    // Validar pago minimo: al menos 6% del monto de la deuda
+    final minRequired = amount * 0.06;
+    if (minPay < minRequired) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'El pago minimo debe ser al menos el 6% de la deuda '
+            '(\$${minRequired.toStringAsFixed(2)})',
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => _saving = true);
     final debt = Debt(
       id: '${user.id}_d_${DateTime.now().millisecondsSinceEpoch}',
@@ -658,7 +672,8 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
                   decimal: true,
                 ),
                 decoration: const InputDecoration(
-                  labelText: 'Pago minimo por periodo (\$)',
+                  labelText: 'Pago minimo por periodo (min 6%)',
+                  hintText: 'Al menos el 6% del monto de la deuda',
                   prefixIcon: Icon(Icons.price_check),
                 ),
               ),
