@@ -625,4 +625,38 @@ class DatabaseService {
       return 0;
     }
   }
+
+  // ============================================================
+  // Borrado masivo por usuario
+  // ============================================================
+  Future<void> deleteAllMoneyRecords(String userId) async {
+    await _client.from('money_records').delete().eq('user_id', userId);
+  }
+
+  Future<void> deleteAllFixedExpenses(String userId) async {
+    await _client.from('fixed_expenses').delete().eq('user_id', userId);
+  }
+
+  Future<void> deleteAllDebts(String userId) async {
+    await _client.from('debts').delete().eq('user_id', userId);
+    await _client.from('debt_payments').delete().eq('user_id', userId);
+  }
+
+  Future<void> deleteAllSavingGoals(String userId) async {
+    await _client.from('saving_goals').delete().eq('user_id', userId);
+  }
+
+  Future<void> deleteAllSalarySettings(String userId) async {
+    await _client.from('salary_settings').delete().eq('user_id', userId);
+  }
+
+  /// Reinicia todas las finanzas del usuario a cero
+  Future<void> resetAllFinances(String userId) async {
+    await deleteAllMoneyRecords(userId);
+    await deleteAllFixedExpenses(userId);
+    await deleteAllDebts(userId);
+    await deleteAllSavingGoals(userId);
+    await deleteAllMonthlyPayments(userId);
+    await deleteAllSalarySettings(userId);
+  }
 }

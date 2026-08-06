@@ -1,3 +1,5 @@
+enum ActivityType { boolean, numeric }
+
 class DailyActivity {
   final String id;
   final String userId;
@@ -6,6 +8,10 @@ class DailyActivity {
   final DateTime scheduledDate;
   final DateTime? completedAt;
   final DateTime createdAt;
+  final ActivityType activityType;
+  final num? currentValue;
+  final num? targetValue;
+  final String? unit;
 
   DailyActivity({
     required this.id,
@@ -15,7 +21,16 @@ class DailyActivity {
     required this.scheduledDate,
     this.completedAt,
     DateTime? createdAt,
+    this.activityType = ActivityType.boolean,
+    this.currentValue,
+    this.targetValue,
+    this.unit,
   }) : createdAt = createdAt ?? DateTime.now();
+
+  double get progress {
+    if (targetValue == null || targetValue == 0) return isCompleted ? 1.0 : 0.0;
+    return ((currentValue ?? 0) / targetValue!).clamp(0.0, 1.0);
+  }
 
   DailyActivity copyWith({
     String? id,
@@ -24,6 +39,10 @@ class DailyActivity {
     bool? isCompleted,
     DateTime? scheduledDate,
     DateTime? completedAt,
+    ActivityType? activityType,
+    num? currentValue,
+    num? targetValue,
+    String? unit,
   }) {
     return DailyActivity(
       id: id ?? this.id,
@@ -33,6 +52,10 @@ class DailyActivity {
       scheduledDate: scheduledDate ?? this.scheduledDate,
       completedAt: completedAt ?? this.completedAt,
       createdAt: createdAt,
+      activityType: activityType ?? this.activityType,
+      currentValue: currentValue ?? this.currentValue,
+      targetValue: targetValue ?? this.targetValue,
+      unit: unit ?? this.unit,
     );
   }
 
@@ -51,7 +74,16 @@ class DailyActivity {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
+      activityType: _parseActivityType(json['activity_type']),
+      currentValue: json['current_value'] as num?,
+      targetValue: json['target_value'] as num?,
+      unit: json['unit'] as String?,
     );
+  }
+
+  static ActivityType _parseActivityType(dynamic value) {
+    if (value == 'numeric') return ActivityType.numeric;
+    return ActivityType.boolean;
   }
 
   Map<String, dynamic> toJson() {
@@ -63,6 +95,10 @@ class DailyActivity {
       'scheduled_date': scheduledDate.toUtc().toIso8601String(),
       'completed_at': completedAt?.toUtc().toIso8601String(),
       'created_at': createdAt.toIso8601String(),
+      'activity_type': activityType.name,
+      'current_value': currentValue,
+      'target_value': targetValue,
+      'unit': unit,
     };
   }
 }

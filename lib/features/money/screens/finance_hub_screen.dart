@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/services/database_service.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/utils/responsive_helper.dart';
 import 'money_tracking_screen.dart';
@@ -15,6 +16,8 @@ import 'next_quincena_card.dart';
 import 'money_tracking_screen.dart' as money;
 import 'fixed_expenses_content.dart' as expenses;
 import 'salary_summary_card.dart' as salary;
+import 'debts_content.dart' as debts;
+import 'saving_goals_content.dart' as goals;
 
 class FinanceHubScreen extends ConsumerStatefulWidget {
   const FinanceHubScreen({super.key});
@@ -26,10 +29,70 @@ class FinanceHubScreen extends ConsumerStatefulWidget {
 class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
   bool _compactMode = false;
   bool _summaryExpanded = false;
+  bool _resetting = false;
 
   @override
   void initState() {
     super.initState();
+  }
+
+  Future<void> _resetAllFinances() async {
+    final user = ref.read(supabaseClientProvider).auth.currentUser;
+    if (user == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reiniciar finanzas'),
+        content: const Text(
+          'Esto eliminara todas tus inversiones, deudas, gastos fijos, '
+          'metas de ahorro, pagos mensuales y configuracion de salario. '
+          'Esta accion no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+            ),
+            child: const Text('Reiniciar todo'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _resetting = true);
+    try {
+      await ref.read(databaseServiceProvider).resetAllFinances(user.id);
+      // Invalidar providers para refrescar la UI
+      ref.invalidate(money.totalSavedProvider(user.id));
+      ref.invalidate(money.totalDailyEarningsProvider(user.id));
+      ref.invalidate(money.moneyRecordsProvider(user.id));
+      ref.invalidate(expenses.totalFixedExpensesProvider(user.id));
+      ref.invalidate(expenses.fixedExpensesProvider(user.id));
+      ref.invalidate(salary.salarySettingProvider(user.id));
+      ref.invalidate(debts.debtsProvider(user.id));
+      ref.invalidate(goals.savingGoalsProvider(user.id));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Finanzas reiniciadas correctamente')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _resetting = false);
+    }
   }
 
   @override
@@ -100,6 +163,41 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
               child: Stack(
                 children: [
                   salaryCard,
+                  Positioned(
+                    top: 8,
+                    right: 56,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(r.borderRadius - 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.redAccent.withValues(alpha: 0.15),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: _resetting
+                            ? SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: theme.colorScheme.error,
+                                ),
+                              )
+                            : Icon(
+                                Icons.restart_alt,
+                                size: 22,
+                                color: theme.colorScheme.error,
+                              ),
+                        tooltip: 'Reiniciar todas las finanzas',
+                        onPressed: _resetting ? null : _resetAllFinances,
+                      ),
+                    ),
+                  ),
                   Positioned(
                     top: 8,
                     right: 8,
@@ -261,6 +359,30 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
                     ),
                   ),
                   const Spacer(),
+                  if (_resetting)
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: theme.colorScheme.error,
+                      ),
+                    )
+                  else
+                    IconButton(
+                      icon: Icon(
+                        Icons.restart_alt,
+                        size: 20,
+                        color: theme.colorScheme.error,
+                      ),
+                      tooltip: 'Reiniciar todas las finanzas',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
+                      onPressed: _resetAllFinances,
+                    ),
                   if (!_summaryExpanded && monthlySalary > 0)
                     Text(
                       '\$${(monthlySalary / 2).toStringAsFixed(0)} libres',

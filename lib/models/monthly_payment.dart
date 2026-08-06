@@ -3,7 +3,7 @@ class MonthlyPayment {
   final String userId;
   final String name;
   final double amount;
-  final String type; // 'credito' o 'ahorro'
+  final int dayOfMonth;
   final DateTime createdAt;
 
   MonthlyPayment({
@@ -11,26 +11,9 @@ class MonthlyPayment {
     required this.userId,
     required this.name,
     required this.amount,
-    this.type = 'credito',
+    this.dayOfMonth = 1,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
-
-  MonthlyPayment copyWith({
-    String? id,
-    String? userId,
-    String? name,
-    double? amount,
-    String? type,
-  }) {
-    return MonthlyPayment(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      name: name ?? this.name,
-      amount: amount ?? this.amount,
-      type: type ?? this.type,
-      createdAt: createdAt,
-    );
-  }
 
   factory MonthlyPayment.fromJson(Map<String, dynamic> json) {
     return MonthlyPayment(
@@ -38,7 +21,7 @@ class MonthlyPayment {
       userId: json['user_id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
-      type: json['type'] as String? ?? 'credito',
+      dayOfMonth: (json['day_of_month'] as num?)?.toInt() ?? 1,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -51,7 +34,7 @@ class MonthlyPayment {
       'user_id': userId,
       'name': name,
       'amount': amount,
-      'type': type,
+      'day_of_month': dayOfMonth,
       'created_at': createdAt.toIso8601String(),
     };
   }
