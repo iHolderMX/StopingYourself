@@ -56,9 +56,7 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             child: const Text('Reiniciar todo'),
           ),
         ],
@@ -86,9 +84,9 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _resetting = false);
@@ -149,292 +147,358 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
     );
 
     if (r.isDesktop) {
-      return SingleChildScrollView(
-        padding: EdgeInsets.only(bottom: r.padVertical),
-        child: Column(
-          children: [
-            // Header: salary card + toggle flotante
-            Padding(
-              padding: EdgeInsets.only(
-                left: r.padHorizontal,
-                right: r.padHorizontal,
-                top: r.padVertical,
-              ),
-              child: Stack(
-                children: [
-                  salaryCard,
-                  Positioned(
-                    top: 8,
-                    right: 56,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(r.borderRadius - 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.redAccent.withValues(alpha: 0.15),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        icon: _resetting
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: theme.colorScheme.error,
-                                ),
-                              )
-                            : Icon(
-                                Icons.restart_alt,
-                                size: 22,
-                                color: theme.colorScheme.error,
-                              ),
-                        tooltip: 'Reiniciar todas las finanzas',
-                        onPressed: _resetting ? null : _resetAllFinances,
-                      ),
-                    ),
+      return Stack(
+        children: [
+          SingleChildScrollView(
+            padding: EdgeInsets.only(bottom: r.padVertical),
+            child: Column(
+              children: [
+                // Header: salary card + toggle flotante
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: r.padHorizontal,
+                    right: r.padHorizontal,
+                    top: r.padVertical,
                   ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(r.borderRadius - 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.colorScheme.primary.withValues(
-                              alpha: 0.08,
+                  child: Stack(
+                    children: [
+                      salaryCard,
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(
+                              r.borderRadius - 2,
                             ),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.08,
+                                ),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: IconButton(
-                        icon: Icon(
-                          _compactMode
-                              ? Icons.fullscreen
-                              : Icons.fullscreen_exit,
-                          size: 22,
+                          child: IconButton(
+                            icon: Icon(
+                              _compactMode
+                                  ? Icons.fullscreen
+                                  : Icons.fullscreen_exit,
+                              size: 22,
+                            ),
+                            tooltip: _compactMode
+                                ? 'Ver todo expandido'
+                                : 'Ver columnas compactas',
+                            onPressed: () =>
+                                setState(() => _compactMode = !_compactMode),
+                          ),
                         ),
-                        tooltip: _compactMode
-                            ? 'Ver todo expandido'
-                            : 'Ver columnas compactas',
-                        onPressed: () =>
-                            setState(() => _compactMode = !_compactMode),
                       ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: r.cardSpacing),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
+                  child: const NextQuincenaCard(),
+                ),
+                SizedBox(height: r.cardSpacing),
+                if (_compactMode)
+                  // Modo compacto: columnas responsivas con Wrap
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final maxW = constraints.maxWidth;
+                        // En pantallas anchas: 5 columnas expandidas
+                        // En pantallas angostas: Wrap con columnas de ancho fijo
+                        final useWrap = maxW < 1300;
+                        const colMinWidth = 300.0;
+
+                        if (useWrap) {
+                          return Wrap(
+                            spacing: r.cardSpacing,
+                            runSpacing: r.cardSpacing,
+                            children: [
+                              const SizedBox(
+                                width: colMinWidth,
+                                child: MoneyTrackingScreen(),
+                              ),
+                              const SizedBox(
+                                width: colMinWidth,
+                                child: FixedExpensesContent(),
+                              ),
+                              SizedBox(
+                                width: colMinWidth,
+                                child: DebtsContent(totalSaved: saved),
+                              ),
+                              const SizedBox(
+                                width: colMinWidth,
+                                child: SavingGoalsContent(),
+                              ),
+                              SizedBox(width: colMinWidth, child: charts),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Expanded(child: MoneyTrackingScreen()),
+                            SizedBox(width: r.cardSpacing),
+                            const Expanded(child: FixedExpensesContent()),
+                            SizedBox(width: r.cardSpacing),
+                            Expanded(child: DebtsContent(totalSaved: saved)),
+                            SizedBox(width: r.cardSpacing),
+                            const Expanded(child: SavingGoalsContent()),
+                            SizedBox(width: r.cardSpacing),
+                            Expanded(child: charts),
+                          ],
+                        );
+                      },
+                    ),
+                  )
+                else
+                  // Modo expandido: todo vertical, dentro del scroll principal
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
+                    child: Column(
+                      children: [
+                        const MoneyTrackingScreen(compact: false),
+                        SizedBox(height: r.cardSpacing + 12),
+                        const FixedExpensesContent(compact: false),
+                        SizedBox(height: r.cardSpacing + 12),
+                        DebtsContent(compact: false, totalSaved: saved),
+                        SizedBox(height: r.cardSpacing + 12),
+                        const SavingGoalsContent(compact: false),
+                        SizedBox(height: r.cardSpacing + 12),
+                        charts,
+                      ],
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
-            SizedBox(height: r.cardSpacing),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
-              child: const NextQuincenaCard(),
-            ),
-            SizedBox(height: r.cardSpacing),
-            if (_compactMode)
-              // Modo compacto: columnas responsivas con Wrap
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final maxW = constraints.maxWidth;
-                    // En pantallas anchas: 5 columnas expandidas
-                    // En pantallas angostas: Wrap con columnas de ancho fijo
-                    final useWrap = maxW < 1300;
-                    const colMinWidth = 300.0;
-
-                    if (useWrap) {
-                      return Wrap(
-                        spacing: r.cardSpacing,
-                        runSpacing: r.cardSpacing,
-                        children: [
-                          const SizedBox(
-                            width: colMinWidth,
-                            child: MoneyTrackingScreen(),
+          ),
+          // Boton flotante de reinicio - siempre visible top-left
+          Positioned(
+            top: r.padVertical + 4,
+            left: r.padHorizontal,
+            child: Material(
+              elevation: 6,
+              borderRadius: BorderRadius.circular(16),
+              color: _resetting
+                  ? Colors.red.withValues(alpha: 0.6)
+                  : Colors.red.withValues(alpha: 0.9),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _resetting ? null : _resetAllFinances,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: _resetting
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
                           ),
-                          const SizedBox(
-                            width: colMinWidth,
-                            child: FixedExpensesContent(),
-                          ),
-                          SizedBox(
-                            width: colMinWidth,
-                            child: DebtsContent(totalSaved: saved),
-                          ),
-                          const SizedBox(
-                            width: colMinWidth,
-                            child: SavingGoalsContent(),
-                          ),
-                          SizedBox(width: colMinWidth, child: charts),
-                        ],
-                      );
-                    }
-
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Expanded(child: MoneyTrackingScreen()),
-                        SizedBox(width: r.cardSpacing),
-                        const Expanded(child: FixedExpensesContent()),
-                        SizedBox(width: r.cardSpacing),
-                        Expanded(child: DebtsContent(totalSaved: saved)),
-                        SizedBox(width: r.cardSpacing),
-                        const Expanded(child: SavingGoalsContent()),
-                        SizedBox(width: r.cardSpacing),
-                        Expanded(child: charts),
-                      ],
-                    );
-                  },
-                ),
-              )
-            else
-              // Modo expandido: todo vertical, dentro del scroll principal
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
-                child: Column(
-                  children: [
-                    const MoneyTrackingScreen(compact: false),
-                    SizedBox(height: r.cardSpacing + 12),
-                    const FixedExpensesContent(compact: false),
-                    SizedBox(height: r.cardSpacing + 12),
-                    DebtsContent(compact: false, totalSaved: saved),
-                    SizedBox(height: r.cardSpacing + 12),
-                    const SavingGoalsContent(compact: false),
-                    SizedBox(height: r.cardSpacing + 12),
-                    charts,
-                  ],
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.restart_alt,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Reiniciar',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
               ),
-          ],
-        ),
+            ),
+          ),
+        ],
       );
     }
 
     // Mobile / Tablet: todo en scroll simple, sin headers fijos
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        left: r.padHorizontal,
-        right: r.padHorizontal,
-        top: r.padVertical + 8,
-        bottom: r.padVertical + 24,
-      ),
-      child: Column(
-        children: [
-          // Barra colapsable para el resumen financiero
-          GestureDetector(
-            onTap: () => setState(() => _summaryExpanded = !_summaryExpanded),
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: r.cardSpacing - 4,
-                vertical: r.cardSpacing - 6,
-              ),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(r.borderRadius - 2),
-                border: Border.all(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.2),
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          padding: EdgeInsets.only(
+            left: r.padHorizontal,
+            right: r.padHorizontal,
+            top: r.padVertical + 8,
+            bottom: r.padVertical + 24,
+          ),
+          child: Column(
+            children: [
+              // Barra colapsable para el resumen financiero
+              GestureDetector(
+                onTap: () =>
+                    setState(() => _summaryExpanded = !_summaryExpanded),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: r.cardSpacing - 4,
+                    vertical: r.cardSpacing - 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(r.borderRadius - 2),
+                    border: Border.all(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet_outlined,
+                        color: theme.colorScheme.primary,
+                        size: r.iconSizeMedium - 2,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Resumen Financiero',
+                        style: GoogleFonts.outfit(
+                          fontSize: r.subtitleFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (!_summaryExpanded && monthlySalary > 0)
+                        Text(
+                          '\$${(monthlySalary / 2).toStringAsFixed(0)} libres',
+                          style: GoogleFonts.inter(
+                            fontSize: r.bodyFontSize - 2,
+                            color: Colors.green,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      const SizedBox(width: 8),
+                      AnimatedRotation(
+                        turns: _summaryExpanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: theme.colorScheme.primary,
+                          size: r.iconSizeMedium,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.account_balance_wallet_outlined,
-                    color: theme.colorScheme.primary,
-                    size: r.iconSizeMedium - 2,
+              // Contenido colapsable
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topCenter,
+                child: _summaryExpanded
+                    ? Column(
+                        children: [
+                          SizedBox(height: r.cardSpacing - 2),
+                          salaryCard,
+                          SizedBox(height: r.cardSpacing - 4),
+                          const NextQuincenaCard(),
+                        ],
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              SizedBox(height: r.cardSpacing + 4),
+              // Secciones de contenido, todas scrolleables
+              const MoneyTrackingScreen(compact: false),
+              SizedBox(height: r.cardSpacing + 8),
+              const FixedExpensesContent(compact: false),
+              SizedBox(height: r.cardSpacing + 8),
+              DebtsContent(compact: false, totalSaved: saved),
+              SizedBox(height: r.cardSpacing + 8),
+              const SavingGoalsContent(compact: false),
+              SizedBox(height: r.cardSpacing + 8),
+              charts,
+            ],
+          ),
+        ),
+        // Boton flotante de reinicio - siempre visible top-left
+        Positioned(
+          top: r.padVertical + 4,
+          left: r.padHorizontal,
+          child: Material(
+            elevation: 6,
+            borderRadius: BorderRadius.circular(14),
+            color: _resetting
+                ? Colors.red.withValues(alpha: 0.6)
+                : Colors.red.withValues(alpha: 0.9),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: _resetting ? null : _resetAllFinances,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    width: 1.5,
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Resumen Financiero',
-                    style: GoogleFonts.outfit(
-                      fontSize: r.subtitleFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const Spacer(),
-                  if (_resetting)
-                    SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: theme.colorScheme.error,
+                ),
+                child: _resetting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.restart_alt,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Reiniciar',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
-                    )
-                  else
-                    IconButton(
-                      icon: Icon(
-                        Icons.restart_alt,
-                        size: 20,
-                        color: theme.colorScheme.error,
-                      ),
-                      tooltip: 'Reiniciar todas las finanzas',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 36,
-                        minHeight: 36,
-                      ),
-                      onPressed: _resetAllFinances,
-                    ),
-                  if (!_summaryExpanded && monthlySalary > 0)
-                    Text(
-                      '\$${(monthlySalary / 2).toStringAsFixed(0)} libres',
-                      style: GoogleFonts.inter(
-                        fontSize: r.bodyFontSize - 2,
-                        color: Colors.green,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  const SizedBox(width: 8),
-                  AnimatedRotation(
-                    turns: _summaryExpanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: theme.colorScheme.primary,
-                      size: r.iconSizeMedium,
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
-          // Contenido colapsable
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            alignment: Alignment.topCenter,
-            child: _summaryExpanded
-                ? Column(
-                    children: [
-                      SizedBox(height: r.cardSpacing - 2),
-                      salaryCard,
-                      SizedBox(height: r.cardSpacing - 4),
-                      const NextQuincenaCard(),
-                    ],
-                  )
-                : const SizedBox.shrink(),
-          ),
-          SizedBox(height: r.cardSpacing + 4),
-          // Secciones de contenido, todas scrolleables
-          const MoneyTrackingScreen(compact: false),
-          SizedBox(height: r.cardSpacing + 8),
-          const FixedExpensesContent(compact: false),
-          SizedBox(height: r.cardSpacing + 8),
-          DebtsContent(compact: false, totalSaved: saved),
-          SizedBox(height: r.cardSpacing + 8),
-          const SavingGoalsContent(compact: false),
-          SizedBox(height: r.cardSpacing + 8),
-          charts,
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
