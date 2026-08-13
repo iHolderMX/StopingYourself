@@ -15,6 +15,7 @@ import '../../models/daily_activity.dart';
 import '../../models/saving_goal.dart';
 import '../../models/lol_record.dart';
 import '../../models/monthly_payment.dart';
+import '../../models/quincena_expense.dart';
 import 'supabase_service.dart';
 
 final databaseServiceProvider = Provider<DatabaseService>((ref) {
@@ -690,6 +691,34 @@ class DatabaseService {
   }
 
   // ============================================================
+  // Gastos planeados de la proxima quincena
+  // ============================================================
+  Future<List<QuincenaExpense>> getQuincenaExpenses(String userId) async {
+    try {
+      final data = await _client
+          .from('quincena_expenses')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      return data.map((e) => QuincenaExpense.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> insertQuincenaExpense(QuincenaExpense expense) async {
+    await _client.from('quincena_expenses').insert(expense.toJson());
+  }
+
+  Future<void> deleteQuincenaExpense(String id) async {
+    await _client.from('quincena_expenses').delete().eq('id', id);
+  }
+
+  Future<void> deleteAllQuincenaExpenses(String userId) async {
+    await _client.from('quincena_expenses').delete().eq('user_id', userId);
+  }
+
+  // ============================================================
   // Borrado masivo por usuario
   // ============================================================
   Future<void> deleteAllMoneyRecords(String userId) async {
@@ -730,6 +759,7 @@ class DatabaseService {
     await deleteAllSavingGoals(userId);
     await deleteAllEmergencyFunds(userId);
     await deleteAllMonthlyPayments(userId);
+    await deleteAllQuincenaExpenses(userId);
     await deleteAllSalarySettings(userId);
   }
 }

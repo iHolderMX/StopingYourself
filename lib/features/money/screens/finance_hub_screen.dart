@@ -31,6 +31,7 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
   bool _compactMode = false;
   bool _summaryExpanded = false;
   bool _resetting = false;
+  final GlobalKey _quincenaKey = GlobalKey();
 
   @override
   void initState() {
@@ -78,6 +79,7 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
       ref.invalidate(salary.salarySettingProvider(user.id));
       ref.invalidate(debts.debtsProvider(user.id));
       ref.invalidate(goals.savingGoalsProvider(user.id));
+      ref.invalidate(quincenaExpensesProvider(user.id));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Finanzas reiniciadas correctamente')),
@@ -92,6 +94,83 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
     } finally {
       if (mounted) setState(() => _resetting = false);
     }
+  }
+
+  Future<void> _goToQuincena() async {
+    final r = ResponsiveHelper(context);
+    if (!r.isDesktop && !_summaryExpanded) {
+      setState(() => _summaryExpanded = true);
+      // Espera a que AnimatedSize expanda y monte la tarjeta.
+      await Future.delayed(const Duration(milliseconds: 350));
+    }
+    final ctx = _quincenaKey.currentContext;
+    if (ctx == null || !mounted) return;
+    await Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeInOut,
+      alignment: 0.08,
+    );
+  }
+
+  Widget _floatingButton({
+    required VoidCallback? onTap,
+    required bool loading,
+    required IconData icon,
+    required String label,
+    required Color background,
+    required Color foreground,
+    required double iconSize,
+    required double fontSize,
+    required double radius,
+  }) {
+    final big = iconSize > 22;
+    return Material(
+      elevation: 6,
+      borderRadius: BorderRadius.circular(radius),
+      color: loading ? background.withValues(alpha: 0.6) : background,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(radius),
+        onTap: loading ? null : onTap,
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: big ? 18 : 14,
+            vertical: big ? 12 : 10,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.3),
+              width: 1.5,
+            ),
+          ),
+          child: loading
+              ? SizedBox(
+                  width: iconSize,
+                  height: iconSize,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: foreground,
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, color: foreground, size: iconSize),
+                    SizedBox(width: big ? 6 : 5),
+                    Text(
+                      label,
+                      style: GoogleFonts.inter(
+                        fontSize: fontSize,
+                        fontWeight: FontWeight.w700,
+                        color: foreground,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -204,7 +283,7 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
                 SizedBox(height: r.cardSpacing),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: r.padHorizontal),
-                  child: const NextQuincenaCard(),
+                  child: NextQuincenaCard(key: _quincenaKey),
                 ),
                 SizedBox(height: r.cardSpacing),
                 if (_compactMode)
@@ -291,61 +370,38 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
               ],
             ),
           ),
-          // Boton flotante de reinicio - siempre visible top-left
+          // Botones flotantes - siempre visibles top-left
           Positioned(
             top: r.padVertical + 4,
             left: r.padHorizontal,
-            child: Material(
-              elevation: 6,
-              borderRadius: BorderRadius.circular(16),
-              color: _resetting
-                  ? Colors.red.withValues(alpha: 0.6)
-                  : Colors.red.withValues(alpha: 0.9),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: _resetting ? null : _resetAllFinances,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: _resetting
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.restart_alt,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Reiniciar',
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _floatingButton(
+                  onTap: _resetting ? null : _resetAllFinances,
+                  loading: _resetting,
+                  icon: Icons.restart_alt,
+                  label: 'Reiniciar',
+                  background: Colors.red.withValues(alpha: 0.9),
+                  foreground: Colors.white,
+                  iconSize: 24,
+                  fontSize: 14,
+                  radius: 16,
                 ),
-              ),
+                const SizedBox(height: 8),
+                _floatingButton(
+                  onTap: _goToQuincena,
+                  loading: false,
+                  icon: Icons.event_available,
+                  label: 'Planear quincena',
+                  background: theme.colorScheme.primary,
+                  foreground: theme.colorScheme.onPrimary,
+                  iconSize: 24,
+                  fontSize: 14,
+                  radius: 16,
+                ),
+              ],
             ),
           ),
         ],
@@ -431,7 +487,7 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
                           SizedBox(height: r.cardSpacing - 2),
                           salaryCard,
                           SizedBox(height: r.cardSpacing - 4),
-                          const NextQuincenaCard(),
+                          NextQuincenaCard(key: _quincenaKey),
                         ],
                       )
                     : const SizedBox.shrink(),
@@ -452,61 +508,38 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
             ],
           ),
         ),
-        // Boton flotante de reinicio - siempre visible top-left
+        // Botones flotantes - siempre visibles top-left
         Positioned(
           top: r.padVertical + 4,
           left: r.padHorizontal,
-          child: Material(
-            elevation: 6,
-            borderRadius: BorderRadius.circular(14),
-            color: _resetting
-                ? Colors.red.withValues(alpha: 0.6)
-                : Colors.red.withValues(alpha: 0.9),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: _resetting ? null : _resetAllFinances,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    width: 1.5,
-                  ),
-                ),
-                child: _resetting
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.restart_alt,
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            'Reiniciar',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _floatingButton(
+                onTap: _resetting ? null : _resetAllFinances,
+                loading: _resetting,
+                icon: Icons.restart_alt,
+                label: 'Reiniciar',
+                background: Colors.red.withValues(alpha: 0.9),
+                foreground: Colors.white,
+                iconSize: 22,
+                fontSize: 13,
+                radius: 14,
               ),
-            ),
+              const SizedBox(height: 8),
+              _floatingButton(
+                onTap: _goToQuincena,
+                loading: false,
+                icon: Icons.event_available,
+                label: 'Planear quincena',
+                background: theme.colorScheme.primary,
+                foreground: theme.colorScheme.onPrimary,
+                iconSize: 22,
+                fontSize: 13,
+                radius: 14,
+              ),
+            ],
           ),
         ),
       ],
