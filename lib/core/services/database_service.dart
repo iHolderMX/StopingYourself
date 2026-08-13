@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/profile.dart';
 import '../../models/category.dart';
 import '../../models/lesson.dart';
+import '../../models/emergency_fund.dart';
 import '../../models/user_progress.dart';
 import '../../models/relapse_record.dart';
 import '../../models/money_record.dart';
@@ -627,6 +628,68 @@ class DatabaseService {
   }
 
   // ============================================================
+  // Emergency Funds (Fondo de Emergencia)
+  // ============================================================
+
+  Future<List<EmergencyFund>> getEmergencyFunds(String userId) async {
+    final data = await _client
+        .from('emergency_funds')
+        .select()
+        .eq('user_id', userId)
+        .order('created_at');
+    return data.map((j) => EmergencyFund.fromJson(j)).toList();
+  }
+
+  Future<void> insertEmergencyFund(EmergencyFund fund) async {
+    await _client.from('emergency_funds').insert(fund.toJson());
+  }
+
+  Future<void> updateEmergencyFund(EmergencyFund fund) async {
+    await _client
+        .from('emergency_funds')
+        .update(fund.toJson())
+        .eq('id', fund.id);
+  }
+
+  Future<void> deleteEmergencyFund(String id) async {
+    await _client.from('emergency_funds').delete().eq('id', id);
+  }
+
+  // Emergency Fund Entries (sub-divisiones)
+  Future<List<EmergencyFundEntry>> getEmergencyFundEntries(
+    String fundId,
+  ) async {
+    final data = await _client
+        .from('emergency_fund_entries')
+        .select()
+        .eq('emergency_fund_id', fundId)
+        .order('created_at');
+    return data.map((j) => EmergencyFundEntry.fromJson(j)).toList();
+  }
+
+  Future<void> insertEmergencyFundEntry(EmergencyFundEntry entry) async {
+    await _client.from('emergency_fund_entries').insert(entry.toJson());
+  }
+
+  Future<void> updateEmergencyFundEntry(EmergencyFundEntry entry) async {
+    await _client
+        .from('emergency_fund_entries')
+        .update(entry.toJson())
+        .eq('id', entry.id);
+  }
+
+  Future<void> deleteEmergencyFundEntry(String id) async {
+    await _client.from('emergency_fund_entries').delete().eq('id', id);
+  }
+
+  Future<void> deleteAllEmergencyFundEntries(String fundId) async {
+    await _client
+        .from('emergency_fund_entries')
+        .delete()
+        .eq('emergency_fund_id', fundId);
+  }
+
+  // ============================================================
   // Borrado masivo por usuario
   // ============================================================
   Future<void> deleteAllMoneyRecords(String userId) async {
@@ -650,12 +713,22 @@ class DatabaseService {
     await _client.from('salary_settings').delete().eq('user_id', userId);
   }
 
+  Future<void> deleteAllEmergencyFunds(String userId) async {
+    // Primero borrar entries de todos los fondos del usuario
+    final funds = await getEmergencyFunds(userId);
+    for (final f in funds) {
+      await deleteAllEmergencyFundEntries(f.id);
+    }
+    await _client.from('emergency_funds').delete().eq('user_id', userId);
+  }
+
   /// Reinicia todas las finanzas del usuario a cero
   Future<void> resetAllFinances(String userId) async {
     await deleteAllMoneyRecords(userId);
     await deleteAllFixedExpenses(userId);
     await deleteAllDebts(userId);
     await deleteAllSavingGoals(userId);
+    await deleteAllEmergencyFunds(userId);
     await deleteAllMonthlyPayments(userId);
     await deleteAllSalarySettings(userId);
   }

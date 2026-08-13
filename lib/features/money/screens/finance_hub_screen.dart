@@ -10,6 +10,7 @@ import 'salary_summary_card.dart';
 import 'finance_charts.dart';
 import 'debts_content.dart';
 import 'saving_goals_content.dart';
+import 'emergency_fund_content.dart';
 import 'next_quincena_card.dart';
 
 // Aliases para providers de otras pantallas
@@ -239,6 +240,10 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
                                 width: colMinWidth,
                                 child: SavingGoalsContent(),
                               ),
+                              const SizedBox(
+                                width: colMinWidth,
+                                child: EmergencyFundContent(),
+                              ),
                               SizedBox(width: colMinWidth, child: charts),
                             ],
                           );
@@ -254,6 +259,8 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
                             Expanded(child: DebtsContent(totalSaved: saved)),
                             SizedBox(width: r.cardSpacing),
                             const Expanded(child: SavingGoalsContent()),
+                            SizedBox(width: r.cardSpacing),
+                            const Expanded(child: EmergencyFundContent()),
                             SizedBox(width: r.cardSpacing),
                             Expanded(child: charts),
                           ],
@@ -274,6 +281,8 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
                         DebtsContent(compact: false, totalSaved: saved),
                         SizedBox(height: r.cardSpacing + 12),
                         const SavingGoalsContent(compact: false),
+                        SizedBox(height: r.cardSpacing + 12),
+                        const EmergencyFundContent(compact: false),
                         SizedBox(height: r.cardSpacing + 12),
                         charts,
                       ],
@@ -436,6 +445,8 @@ class _FinanceHubScreenState extends ConsumerState<FinanceHubScreen> {
               DebtsContent(compact: false, totalSaved: saved),
               SizedBox(height: r.cardSpacing + 8),
               const SavingGoalsContent(compact: false),
+              SizedBox(height: r.cardSpacing + 8),
+              const EmergencyFundContent(compact: false),
               SizedBox(height: r.cardSpacing + 8),
               charts,
             ],
