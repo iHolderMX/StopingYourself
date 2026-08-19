@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/services/database_service.dart';
 import '../../../core/services/supabase_service.dart';
@@ -12,6 +13,19 @@ final quincenaExpensesProvider =
     FutureProvider.family<List<QuincenaExpense>, String>(
   (ref, userId) => ref.watch(databaseServiceProvider).getQuincenaExpenses(userId),
 );
+
+const _quincenaPalette = <Color>[
+  Color(0xFF42A5F5), // azul
+  Color(0xFFEF5350), // rojo
+  Color(0xFFFFA726), // naranja
+  Color(0xFFAB47BC), // púrpura
+  Color(0xFF26A69A), // teal
+  Color(0xFFEC407A), // rosa
+  Color(0xFF7E57C2), // morado
+  Color(0xFFFFCA28), // ámbar
+  Color(0xFF5C6BC0), // índigo
+  Color(0xFF8D6E63), // marrón
+];
 
 class NextQuincenaCard extends ConsumerStatefulWidget {
   const NextQuincenaCard({super.key});
@@ -309,6 +323,10 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
 
           SizedBox(height: r.cardSpacing + 6),
 
+          _buildPieChart(theme, r, available, expenses, remaining),
+
+          SizedBox(height: r.cardSpacing + 6),
+
           // Formulario para agregar gasto
           Text(
             'Agregar gasto',
@@ -396,8 +414,10 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
               ),
             )
           else
-            ...expenses.map(
-              (e) => Container(
+            ...expenses.asMap().entries.map((entry) {
+              final i = entry.key;
+              final e = entry.value;
+              return Container(
                 margin: EdgeInsets.only(bottom: r.cardSpacing - 6),
                 padding: EdgeInsets.symmetric(
                   horizontal: r.cardSpacing - 2,
@@ -414,10 +434,13 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.receipt_outlined,
-                      size: 20,
-                      color: neon,
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: _quincenaPalette[i % _quincenaPalette.length],
+                        shape: BoxShape.circle,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -445,9 +468,109 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
                     ),
                   ],
                 ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPieChart(
+    ThemeData theme,
+    ResponsiveHelper r,
+    double available,
+    List<QuincenaExpense> expenses,
+    double remaining,
+  ) {
+    final sections = <PieChartSectionData>[];
+    final ringRadius = r.isDesktop ? 60.0 : 48.0;
+
+    final expensesTotal = expenses.fold<double>(0, (sum, e) => sum + e.amount);
+    final pieTotal = expensesTotal + (remaining > 0 ? remaining : 0);
+
+    if (expenses.isEmpty && remaining <= 0) {
+      sections.add(
+        PieChartSectionData(
+          color: Colors.green.shade400,
+          value: available > 0 ? available : 1,
+          radius: ringRadius,
+          showTitle: false,
+        ),
+      );
+    } else {
+      for (var i = 0; i < expenses.length; i++) {
+        final amount = expenses[i].amount;
+        final pct = pieTotal > 0 ? amount / pieTotal * 100 : 0.0;
+        sections.add(
+          PieChartSectionData(
+            color: _quincenaPalette[i % _quincenaPalette.length],
+            value: amount,
+            radius: ringRadius,
+            showTitle: pct >= 8,
+            title: pct >= 8 ? '${pct.toStringAsFixed(0)}%' : '',
+            titlePositionPercentageOffset: 0.6,
+            titleStyle: TextStyle(
+              fontSize: r.bodyFontSize - 3,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        );
+      }
+
+      if (remaining > 0) {
+        sections.add(
+          PieChartSectionData(
+            color: Colors.green.shade400,
+            value: remaining,
+            radius: ringRadius,
+            showTitle: false,
+          ),
+        );
+      }
+    }
+
+    final restanteColor =
+        remaining >= 0 ? Colors.green.shade400 : Colors.redAccent;
+    final chartSize = r.isDesktop ? 220.0 : 180.0;
+
+    return Center(
+      child: SizedBox(
+        width: chartSize,
+        height: chartSize,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            PieChart(
+              PieChartData(
+                sections: sections,
+                centerSpaceRadius: r.isDesktop ? 36 : 30,
+                sectionsSpace: 3,
+                startDegreeOffset: -90,
               ),
             ),
-        ],
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Restante',
+                  style: GoogleFonts.inter(
+                    fontSize: r.bodyFontSize - 2,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                Text(
+                  '\$${remaining.toStringAsFixed(0)}',
+                  style: GoogleFonts.outfit(
+                    fontSize: r.isDesktop ? 22 : 16,
+                    fontWeight: FontWeight.bold,
+                    color: restanteColor,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
