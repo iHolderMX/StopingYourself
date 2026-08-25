@@ -37,8 +37,9 @@ class LessonDetailScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (lesson) {
-          if (lesson == null)
+          if (lesson == null) {
             return const Center(child: Text('Leccion no encontrada'));
+          }
           return _LessonContent(lesson: lesson);
         },
       ),
@@ -76,19 +77,21 @@ class _LessonContentState extends ConsumerState<_LessonContent> {
         _isCompleting = false;
         _completed = true;
       });
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Leccion completada! +25 XP'),
             backgroundColor: Theme.of(context).colorScheme.secondary,
           ),
         );
+      }
     } catch (e) {
       setState(() => _isCompleting = false);
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Error al guardar progreso')),
         );
+      }
     }
   }
 

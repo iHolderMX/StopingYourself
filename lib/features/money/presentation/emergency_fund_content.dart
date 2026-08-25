@@ -1,24 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../core/services/database_service.dart';
-import '../../../core/services/supabase_service.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../models/emergency_fund.dart';
-import '../../../models/money_record.dart';
-import 'money_tracking_screen.dart' as money;
-
-final emergencyFundsProvider =
-    FutureProvider.family<List<EmergencyFund>, String>(
-      (ref, userId) =>
-          ref.watch(databaseServiceProvider).getEmergencyFunds(userId),
-    );
-
-final emergencyFundEntriesProvider =
-    FutureProvider.family<List<EmergencyFundEntry>, String>(
-      (ref, fundId) =>
-          ref.watch(databaseServiceProvider).getEmergencyFundEntries(fundId),
-    );
+import '../application/emergency_funds_controller.dart';
+import '../application/money_error_message.dart';
+import '../data/money_providers.dart';
+import '../domain/emergency_fund_rules.dart';
+import '../domain/yield_rules.dart';
 
 class EmergencyFundContent extends ConsumerStatefulWidget {
   final bool compact;
@@ -34,10 +23,10 @@ class _EmergencyFundContentState extends ConsumerState<EmergencyFundContent> {
 
   // ── Crear fondo ──
   Future<void> _showCreateDialog() async {
-    final user = ref.read(supabaseClientProvider).auth.currentUser;
-    if (user == null) return;
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
 
-    final moneyRecordsAsync = ref.read(money.moneyRecordsProvider(user.id));
+    final moneyRecordsAsync = ref.read(moneyRecordsProvider(userId));
     final records = moneyRecordsAsync.asData?.value ?? [];
     final noRecords = records.isEmpty;
 
@@ -47,7 +36,7 @@ class _EmergencyFundContentState extends ConsumerState<EmergencyFundContent> {
     double selectedYield = 0;
     final formKey = GlobalKey<FormState>();
 
-    final ok = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
@@ -93,7 +82,7 @@ class _EmergencyFundContentState extends ConsumerState<EmergencyFundContent> {
                           ),
                         ),
                       DropdownButtonFormField<String>(
-                        value: selectedRecordId,
+                        initialValue: selectedRecordId,
                         decoration: const InputDecoration(
                           labelText: 'Ahorro / Inversion origen',
                           prefixIcon: Icon(Icons.savings_outlined),
@@ -202,19 +191,25 @@ class _EmergencyFundContentState extends ConsumerState<EmergencyFundContent> {
                       ? null
                       : () async {
                           if (!formKey.currentState!.validate()) return;
-                          final db = ref.read(databaseServiceProvider);
-                          final fund = EmergencyFund(
-                            id: DateTime.now().millisecondsSinceEpoch
-                                .toString(),
-                            userId: user.id,
-                            name: nameCtrl.text.trim(),
-                            sourceRecordId: selectedRecordId!,
-                            amount: double.parse(amountCtrl.text.trim()),
-                            annualYield: selectedYield,
-                          );
-                          await db.insertEmergencyFund(fund);
-                          ref.invalidate(emergencyFundsProvider(user.id));
-                          if (ctx.mounted) Navigator.pop(ctx, true);
+                          final messenger = ScaffoldMessenger.of(context);
+                          try {
+                            await ref
+                                .read(emergencyFundsControllerProvider)
+                                .createFund(
+                                  userId: userId,
+                                  name: nameCtrl.text,
+                                  sourceRecordId: selectedRecordId!,
+                                  amount: double.parse(amountCtrl.text.trim()),
+                                  annualYield: selectedYield,
+                                );
+                            if (ctx.mounted) Navigator.pop(ctx, true);
+                          } catch (error) {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(describeMoneyError(error)),
+                              ),
+                            );
+                          }
                         },
                 ),
               ],
@@ -223,26 +218,33 @@ class _EmergencyFundContentState extends ConsumerState<EmergencyFundContent> {
         );
       },
     );
-    if (ok == true) ref.invalidate(emergencyFundsProvider(user.id));
+    // El controller refresco los fondos al crear.
   }
 
   // ── Dividir / Reclasificar fondo en entries ──
   Future<void> _showSplitDialog(EmergencyFund fund) async {
-    final user = ref.read(supabaseClientProvider).auth.currentUser;
-    if (user == null) return;
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
 
-    // Cargar entries existentes
-    final db = ref.read(databaseServiceProvider);
-    final existing = await db.getEmergencyFundEntries(fund.id);
-    final usedAmount = existing.fold(0.0, (s, e) => s + e.amount);
-    final available = fund.amount - usedAmount;
+    // Cargar entries existentes (solo para mostrar disponible en el dialogo;
+    // el controller vuelve a leerlas y valida antes de guardar).
+    final existing = await ref
+        .read(emergencyFundsRepositoryProvider)
+        .fetchEntries(fund.id);
+    if (!mounted) return;
+
+    final usedAmount = EmergencyFundRules.classifiedAmount(existing);
+    final available = EmergencyFundRules.availableToSplit(
+      fund: fund,
+      entries: existing,
+    );
 
     final nameCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
     final yieldCtrl = TextEditingController(text: fund.annualYield.toString());
     final formKey = GlobalKey<FormState>();
 
-    final ok = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       builder: (ctx) {
         return AlertDialog(
@@ -333,33 +335,30 @@ class _EmergencyFundContentState extends ConsumerState<EmergencyFundContent> {
               label: const Text('Dividir'),
               onPressed: () async {
                 if (!formKey.currentState!.validate()) return;
-                final entry = EmergencyFundEntry(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  emergencyFundId: fund.id,
-                  name: nameCtrl.text.trim(),
-                  amount: double.parse(amountCtrl.text.trim()),
-                  annualYield:
-                      double.tryParse(
-                        yieldCtrl.text.trim().isEmpty
-                            ? '0'
-                            : yieldCtrl.text.trim(),
-                      ) ??
-                      0,
-                );
-                await db.insertEmergencyFundEntry(entry);
-                ref.invalidate(emergencyFundsProvider(user.id));
-                ref.invalidate(emergencyFundEntriesProvider(fund.id));
-                if (ctx.mounted) Navigator.pop(ctx, true);
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  await ref
+                      .read(emergencyFundsControllerProvider)
+                      .splitFund(
+                        userId: userId,
+                        fund: fund,
+                        name: nameCtrl.text,
+                        amount: double.parse(amountCtrl.text.trim()),
+                        annualYield: double.tryParse(yieldCtrl.text.trim()) ?? 0,
+                      );
+                  if (ctx.mounted) Navigator.pop(ctx, true);
+                } catch (error) {
+                  messenger.showSnackBar(
+                    SnackBar(content: Text(describeMoneyError(error))),
+                  );
+                }
               },
             ),
           ],
         );
       },
     );
-    if (ok == true) {
-      ref.invalidate(emergencyFundsProvider(user.id));
-      ref.invalidate(emergencyFundEntriesProvider(fund.id));
-    }
+    // El controller refresco fondos y divisiones al dividir.
   }
 
   // ── Eliminar entry ──
@@ -367,17 +366,27 @@ class _EmergencyFundContentState extends ConsumerState<EmergencyFundContent> {
     EmergencyFund fund,
     EmergencyFundEntry entry,
   ) async {
-    final user = ref.read(supabaseClientProvider).auth.currentUser;
-    if (user == null) return;
-    await ref.read(databaseServiceProvider).deleteEmergencyFundEntry(entry.id);
-    ref.invalidate(emergencyFundsProvider(user.id));
-    ref.invalidate(emergencyFundEntriesProvider(fund.id));
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
+    try {
+      await ref.read(emergencyFundsControllerProvider).deleteEntry(
+        userId: userId,
+        fundId: fund.id,
+        entryId: entry.id,
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeMoneyError(error))));
+      }
+    }
   }
 
   // ── Eliminar fondo ──
   Future<void> _deleteFund(EmergencyFund fund) async {
-    final user = ref.read(supabaseClientProvider).auth.currentUser;
-    if (user == null) return;
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -398,12 +407,17 @@ class _EmergencyFundContentState extends ConsumerState<EmergencyFundContent> {
         ],
       ),
     );
-    if (confirm == true) {
+    if (confirm != true) return;
+    try {
       await ref
-          .read(databaseServiceProvider)
-          .deleteAllEmergencyFundEntries(fund.id);
-      await ref.read(databaseServiceProvider).deleteEmergencyFund(fund.id);
-      ref.invalidate(emergencyFundsProvider(user.id));
+          .read(emergencyFundsControllerProvider)
+          .deleteFund(userId: userId, fundId: fund.id);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeMoneyError(error))));
+      }
     }
   }
 
@@ -414,18 +428,17 @@ class _EmergencyFundContentState extends ConsumerState<EmergencyFundContent> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final r = ResponsiveHelper(context);
-    final user = ref.watch(supabaseClientProvider).auth.currentUser;
-    final userId = user?.id;
+    final userId = ref.watch(currentUserIdProvider);
 
     final fundsAsync = userId != null
         ? ref.watch(emergencyFundsProvider(userId))
         : null;
-    final funds = fundsAsync?.asData?.value ?? [];
+    final funds = fundsAsync?.asData?.value ?? const <EmergencyFund>[];
     final isLoading = fundsAsync?.isLoading == true;
     final hasError = fundsAsync?.hasError == true;
 
-    final totalAmount = funds.fold(0.0, (s, f) => s + f.amount);
-    final dailyEarnings = funds.fold(0.0, (s, f) => s + f.dailyEarnings);
+    final totalAmount = EmergencyFundRules.totalAmount(funds);
+    final dailyEarnings = YieldRules.totalDailyEarningsOfFunds(funds);
 
     return Container(
       padding: EdgeInsets.all(r.cardSpacing),
@@ -651,7 +664,7 @@ class _EmergencyFundContentState extends ConsumerState<EmergencyFundContent> {
   ) {
     final isExpanded = _expandedFundId == fund.id;
     final entriesAsync = ref.watch(emergencyFundEntriesProvider(fund.id));
-    final entries = entriesAsync?.asData?.value ?? [];
+    final entries = entriesAsync.asData?.value ?? const <EmergencyFundEntry>[];
     final entriesTotal = entries.fold(0.0, (s, e) => s + e.amount);
 
     return Container(

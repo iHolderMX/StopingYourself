@@ -1,18 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../core/services/database_service.dart';
-import '../../../core/services/supabase_service.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../models/debt.dart';
-
-final debtsProvider = FutureProvider.family<List<Debt>, String>(
-  (ref, userId) => ref.watch(databaseServiceProvider).getDebts(userId),
-);
-
-final debtPaymentsProvider = FutureProvider.family<List<DebtPayment>, String>(
-  (ref, debtId) => ref.watch(databaseServiceProvider).getDebtPayments(debtId),
-);
+import '../application/debts_controller.dart';
+import '../application/money_error_message.dart';
+import '../data/money_providers.dart';
+import '../domain/debt_rules.dart';
 
 class DebtsContent extends ConsumerStatefulWidget {
   final bool compact;
@@ -52,18 +46,17 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
   // Dialogo: Agregar deuda
   // ──────────────────────────────────────────────
   Future<void> _showAddDebtDialog() async {
-    final user = ref.read(supabaseClientProvider).auth.currentUser;
-    if (user == null) return;
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
 
     _nameCtrl.clear();
     _amountCtrl.clear();
     _interestCtrl.clear();
     _formKey.currentState?.reset();
 
-    final ok = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       builder: (ctx) {
-        final theme = Theme.of(ctx);
         return AlertDialog(
           title: Text(
             'Nueva deuda',
@@ -129,53 +122,46 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
               label: const Text('Agregar'),
               onPressed: () async {
                 if (!_formKey.currentState!.validate()) return;
-                final db = ref.read(databaseServiceProvider);
-                final debt = Debt(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  userId: user.id,
-                  name: _nameCtrl.text.trim(),
-                  totalAmount: double.parse(_amountCtrl.text.trim()),
-                  interestRate:
-                      double.tryParse(
-                        _interestCtrl.text.trim().isEmpty
-                            ? '0'
-                            : _interestCtrl.text.trim(),
-                      ) ??
-                      0,
-                );
-                await db.insertDebt(debt);
-                ref.invalidate(debtsProvider(user.id));
-                if (ctx.mounted) Navigator.pop(ctx, true);
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  await ref.read(debtsControllerProvider).add(
+                    userId: userId,
+                    name: _nameCtrl.text,
+                    totalAmount: double.parse(_amountCtrl.text.trim()),
+                    interestRate:
+                        double.tryParse(_interestCtrl.text.trim()) ?? 0,
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx, true);
+                } catch (error) {
+                  messenger.showSnackBar(
+                    SnackBar(content: Text(describeMoneyError(error))),
+                  );
+                }
               },
             ),
           ],
         );
       },
     );
-    if (ok == true) {
-      ref.invalidate(debtsProvider(user.id));
-    }
+    // El controller ya refresco los providers al agregar.
   }
 
   // ──────────────────────────────────────────────
   // Dialogo: Agregar pago
   // ──────────────────────────────────────────────
   Future<void> _showAddPaymentDialog(Debt debt) async {
-    final user = ref.read(supabaseClientProvider).auth.currentUser;
-    if (user == null) return;
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
 
     _paymentCtrl.clear();
     _paymentNoteCtrl.clear();
     _paymentFormKey.currentState?.reset();
 
-    final ok = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       builder: (ctx) {
         final theme = Theme.of(ctx);
-        final minPayment = (debt.totalAmount * 0.06).clamp(
-          0.0,
-          debt.remainingAmount,
-        );
+        final minPayment = DebtRules.minimumPayment(debt);
         return AlertDialog(
           title: Text(
             'Pago a: ${debt.name}',
@@ -244,48 +230,37 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
               label: const Text('Registrar pago'),
               onPressed: () async {
                 if (!_paymentFormKey.currentState!.validate()) return;
-                final db = ref.read(databaseServiceProvider);
-                final payment = DebtPayment(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  debtId: debt.id,
-                  amount: double.parse(_paymentCtrl.text.trim()),
-                  note: _paymentNoteCtrl.text.trim().isEmpty
-                      ? null
-                      : _paymentNoteCtrl.text.trim(),
-                );
-                await db.insertDebtPayment(payment);
-                await db.updateDebt(
-                  Debt(
-                    id: debt.id,
-                    userId: debt.userId,
-                    name: debt.name,
-                    totalAmount: debt.totalAmount,
-                    paidAmount: debt.paidAmount + payment.amount,
-                    interestRate: debt.interestRate,
-                    createdAt: debt.createdAt,
-                  ),
-                );
-                ref.invalidate(debtsProvider(user.id));
-                ref.invalidate(debtPaymentsProvider(debt.id));
-                if (ctx.mounted) Navigator.pop(ctx, true);
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  // Insertar el pago y actualizar el saldo ocurre como una
+                  // sola operacion con compensacion dentro del repositorio.
+                  await ref.read(debtsControllerProvider).registerPayment(
+                    userId: userId,
+                    debt: debt,
+                    amount: double.parse(_paymentCtrl.text.trim()),
+                    note: _paymentNoteCtrl.text,
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx, true);
+                } catch (error) {
+                  messenger.showSnackBar(
+                    SnackBar(content: Text(describeMoneyError(error))),
+                  );
+                }
               },
             ),
           ],
         );
       },
     );
-    if (ok == true) {
-      ref.invalidate(debtsProvider(user.id));
-      ref.invalidate(debtPaymentsProvider(debt.id));
-    }
+    // El controller ya refresco deudas y pagos al registrar.
   }
 
   // ──────────────────────────────────────────────
   // Confirmacion: Eliminar deuda
   // ──────────────────────────────────────────────
   Future<void> _confirmDeleteDebt(Debt debt) async {
-    final user = ref.read(supabaseClientProvider).auth.currentUser;
-    if (user == null) return;
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -306,10 +281,17 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
         ],
       ),
     );
-    if (confirm == true) {
-      final db = ref.read(databaseServiceProvider);
-      await db.deleteDebt(debt.id);
-      ref.invalidate(debtsProvider(user.id));
+    if (confirm != true) return;
+    try {
+      await ref
+          .read(debtsControllerProvider)
+          .delete(userId: userId, debtId: debt.id);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeMoneyError(error))));
+      }
     }
   }
 
@@ -320,16 +302,15 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final r = ResponsiveHelper(context);
-    final user = ref.watch(supabaseClientProvider).auth.currentUser;
-    final userId = user?.id;
+    final userId = ref.watch(currentUserIdProvider);
 
     final debtsAsync = userId != null ? ref.watch(debtsProvider(userId)) : null;
-    final debts = debtsAsync?.asData?.value ?? [];
+    final debts = debtsAsync?.asData?.value ?? const <Debt>[];
     final isLoading = debtsAsync?.isLoading == true;
 
-    final totalDebt = debts.fold(0.0, (sum, d) => sum + d.totalAmount);
-    final totalPaid = debts.fold(0.0, (sum, d) => sum + d.paidAmount);
-    final totalRemaining = totalDebt - totalPaid;
+    final totalDebt = DebtRules.totalAmount(debts);
+    final totalPaid = DebtRules.totalPaid(debts);
+    final totalRemaining = DebtRules.totalRemaining(debts);
     final globalProgress = totalDebt > 0 ? totalPaid / totalDebt : 0.0;
 
     return Container(
@@ -799,8 +780,8 @@ class _DebtsContentState extends ConsumerState<DebtsContent> {
   // ──────────────────────────────────────────────
   Widget _buildPaymentHistory(ThemeData theme, ResponsiveHelper r, Debt debt) {
     final paymentsAsync = ref.watch(debtPaymentsProvider(debt.id));
-    final payments = paymentsAsync?.asData?.value ?? [];
-    final isLoading = paymentsAsync?.isLoading == true;
+    final payments = paymentsAsync.asData?.value ?? const <DebtPayment>[];
+    final isLoading = paymentsAsync.isLoading;
 
     return Container(
       width: double.infinity,

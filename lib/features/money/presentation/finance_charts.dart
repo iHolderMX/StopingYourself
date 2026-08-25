@@ -2,12 +2,13 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/utils/responsive_helper.dart';
-import '../../../models/money_record.dart';
-import '../../../models/fixed_expense.dart';
+import '../domain/yield_rules.dart';
 
+/// Graficas comparativas de finanzas contra el sueldo.
+///
+/// Solo recibe totales ya calculados: las listas completas de movimientos y
+/// gastos no se usaban, asi que se quitaron de la firma.
 class FinanceCharts extends StatelessWidget {
-  final List<MoneyRecord> moneyRecords;
-  final List<FixedExpense> fixedExpenses;
   final double totalSaved;
   final double totalFixedExpenses;
   final double totalDailyEarnings;
@@ -15,8 +16,6 @@ class FinanceCharts extends StatelessWidget {
 
   const FinanceCharts({
     super.key,
-    required this.moneyRecords,
-    required this.fixedExpenses,
     required this.totalSaved,
     required this.totalFixedExpenses,
     required this.totalDailyEarnings,
@@ -34,7 +33,7 @@ class FinanceCharts extends StatelessWidget {
     final c3 = theme.colorScheme.tertiary; // neon dim
     final c5 = theme.colorScheme.primary.withValues(alpha: 0.3);
 
-    final annualYield = totalDailyEarnings * 365;
+    final annualYield = YieldRules.annualFromDaily(totalDailyEarnings);
     final salary = monthlySalary;
 
     return SingleChildScrollView(

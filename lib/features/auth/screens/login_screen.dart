@@ -188,8 +188,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               prefixIcon: Icon(Icons.email_outlined),
                             ),
                             validator: (v) {
-                              if (v == null || v.trim().isEmpty)
+                              if (v == null || v.trim().isEmpty) {
                                 return 'Ingresa tu correo';
+                              }
                               if (!v.contains('@')) return 'Correo invalido';
                               return null;
                             },
@@ -214,8 +215,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               ),
                             ),
                             validator: (v) {
-                              if (v == null || v.length < 6)
+                              if (v == null || v.length < 6) {
                                 return 'Minimo 6 caracteres';
+                              }
                               return null;
                             },
                           ),

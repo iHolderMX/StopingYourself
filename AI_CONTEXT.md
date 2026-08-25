@@ -9,30 +9,70 @@ Este archivo está diseñado para que cualquier IA asistente (como yo) pueda ent
 **Objetivo**: Aplicación segura con sistema de login, recuperación de contraseña por correo, y futura implementación de autenticación de dos factores (2FA). 
 
 ## 2. Temática Visual (UI/UX)
-El diseño debe sentirse premium y elegante. Se prohíben colores genéricos.
-Paleta obligatoria:
-- **Mármol** (Superficies/Fondos): `#F0F0F0`, `#E8E8E8` o texturas sutiles blancas.
-- **Oro** (Acentos, Botones principales, Iconos destacados): `#D4AF37`, `#C5A059`.
-- **Gris** (Texto secundario, bordes, elementos neutros): `#808080`, `#4A4A4A`.
-- **Madera** (Paneles secundarios, tarjetas, detalles cálidos): `#8B5A2B`, `#A0522D`.
-- **Verde Bosque** (Éxito, validaciones, elementos de estado): `#228B22`, `#006400`.
+El diseño debe sentirse premium y elegante. La paleta real vive en
+`lib/core/theme/app_theme.dart` (fuente de verdad). Hay dos temas:
 
-*Nota de diseño*: Usar gradientes suaves, micro-animaciones en botones e inputs, y tipografías modernas (ej. Google Fonts como Inter o Outfit).
+- **Tema oscuro (principal)**: azul neón sobre negro/grises.
+  - Neón: `#00D4FF` (primary), `#4DE8FF` (bright), `#0099BB` (dim).
+  - Fondos: `#0A0A0F` (negro), `#18181F`, `#1E1E26`, `#2A2A35`, `#3A3A48`.
+  - Texto: `#E0E0E0` (claro), `#888899` (atenuado).
+- **Tema claro**: `#1A73E8` (primary), `#4A90D9` (secondary), fondo `#F8F9FA`.
+
+Colores semánticos de finanzas: `lib/features/money/presentation/money_colors.dart`
+(`MoneyColors`: positive/negative/warning/emergency + paleta de gráficas).
+
+*Nota de diseño*: gradientes suaves, micro-animaciones y tipografías Google
+Fonts (Inter para body, Outfit para títulos).
+
+> Nota histórica: una versión previa de este documento describía una paleta
+> mármol/oro/madera/verde bosque que nunca se implementó. El tema real es el
+> descrito arriba.
 
 ## 3. Arquitectura del Proyecto Flutter
-Se seguirá una estructura basada en características (Feature-First) o Clean Architecture simplificada.
+Estructura basada en características (Feature-First). Estado con **Riverpod**
+(sin codegen), navegación con **go_router**, backend en **Supabase**.
+
 ```text
 lib/
   core/
-    theme/        # Archivos de colores, tipografías y tema global.
-    utils/        # Funciones helpers.
+    theme/        # app_theme.dart (paleta y tema global).
+    router/       # app_router.dart (GoRouter + ShellRoute).
+    services/     # database_service.dart, supabase_service.dart, openai_service.dart.
+    utils/        # responsive_helper.dart.
   features/
-    auth/         # Módulo de Autenticación.
-      screens/    # LoginScreen, PasswordRecoveryScreen, TwoFactorScreen.
-      widgets/    # Componentes específicos de auth.
-      services/   # Conexión a backend/mock para auth.
-  main.dart       # Punto de entrada.
+    <feature>/
+      screens/    # Pantallas (features aún no refactorizadas).
+  main.dart
 ```
+
+### Módulo de referencia: `features/money/` (Clean Architecture por capas)
+El módulo de finanzas es el patrón a seguir para el resto. Cuatro capas:
+
+```text
+features/money/
+  domain/         # Reglas de negocio como funciones puras (sin Flutter/Supabase).
+                  #   yield_rules, salary_rules, debt_rules, saving_goal_rules,
+                  #   emergency_fund_rules. Testeadas al 100%.
+  data/           # Repositorios (uno por agregado) + money_providers.dart
+                  #   (TODOS los providers viven aquí, no en la UI) +
+                  #   money_failure.dart (errores tipados, no se tragan).
+  application/    # Controllers (casos de uso): validan con domain, escriben
+                  #   con data e invalidan providers. IDs con uuid (money_id.dart).
+  presentation/   # Widgets. Solo pintan y llaman controllers. Sin lógica de negocio.
+```
+
+**Archivos e imágenes**: no se guardan en la base de datos. Van a **Supabase
+Storage** y la tabla solo guarda la *ruta* dentro del bucket (nunca la URL,
+porque los buckets son privados y las URLs firmadas caducan). Referencia:
+metas de ahorro con foto (`saving_goal_image_rules.dart`,
+`saving_goal_images_repository.dart`, bucket `saving-goal-images`).
+
+Reglas al extender el módulo o replicar el patrón:
+- La UI **nunca** llama a Supabase ni a `DatabaseService` directo: usa controllers.
+- Los cálculos (porcentajes, totales, validaciones) van en `domain/`, no en widgets.
+- Los providers se declaran en `data/money_providers.dart`, no dentro de pantallas.
+- Los errores se muestran con `describeMoneyError`; no hay `catch` que devuelva
+  listas vacías disfrazando fallos.
 
 ## 4. Backend y Seguridad
 - Actualmente el backend es **Mock/Temporal** para validar UI y flujos.

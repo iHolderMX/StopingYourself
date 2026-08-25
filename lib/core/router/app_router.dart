@@ -7,7 +7,7 @@ import '../../features/lessons/screens/lessons_screen.dart';
 import '../../features/lessons/screens/lesson_detail_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/relapse/screens/relapse_tracking_screen.dart';
-import '../../features/money/screens/finance_hub_screen.dart';
+import '../../features/money/presentation/finance_hub_screen.dart';
 import '../../features/health/screens/health_tracking_screen.dart';
 import '../../features/activities/screens/daily_activities_screen.dart';
 import '../../features/games/screens/lol_tracking_screen.dart';

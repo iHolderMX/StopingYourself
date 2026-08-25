@@ -176,7 +176,7 @@ class _LoLTrackingScreenState extends ConsumerState<LoLTrackingScreen> {
                         );
                       },
                       loading: () => const CircularProgressIndicator(),
-                      error: (_, __) => const Text('Error'),
+                      error: (_, _) => const Text('Error'),
                     ),
                   ],
                 ),
@@ -304,7 +304,7 @@ class _LoLTrackingScreenState extends ConsumerState<LoLTrackingScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: records.length,
-                separatorBuilder: (_, __) => SizedBox(height: r.cardSpacing),
+                separatorBuilder: (_, _) => SizedBox(height: r.cardSpacing),
                 itemBuilder: (ctx, i) {
                   final record = records[i];
                   final net = record.netPl;

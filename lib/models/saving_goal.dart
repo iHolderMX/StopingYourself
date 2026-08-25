@@ -5,6 +5,13 @@ class SavingGoal {
   final double targetAmount;
   final double currentAmount;
   final String? url;
+
+  /// Ruta de la imagen dentro del bucket de Storage, o `null` si no tiene.
+  ///
+  /// Es una ruta, no una URL: el bucket es privado y las URLs firmadas
+  /// expiran, asi que hay que poder regenerarlas a partir de la ruta.
+  final String? imagePath;
+
   final DateTime createdAt;
   final bool isCompleted;
 
@@ -15,9 +22,12 @@ class SavingGoal {
     required this.targetAmount,
     this.currentAmount = 0,
     this.url,
+    this.imagePath,
     DateTime? createdAt,
     this.isCompleted = false,
   }) : createdAt = createdAt ?? DateTime.now();
+
+  bool get hasImage => imagePath != null && imagePath!.isNotEmpty;
 
   factory SavingGoal.fromJson(Map<String, dynamic> json) {
     return SavingGoal(
@@ -27,6 +37,7 @@ class SavingGoal {
       targetAmount: (json['target_amount'] as num?)?.toDouble() ?? 0,
       currentAmount: (json['current_amount'] as num?)?.toDouble() ?? 0,
       url: json['url'] as String?,
+      imagePath: json['image_path'] as String?,
       isCompleted: json['is_completed'] as bool? ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
@@ -42,6 +53,7 @@ class SavingGoal {
       'target_amount': targetAmount,
       'current_amount': currentAmount,
       'url': url,
+      'image_path': imagePath,
       'is_completed': isCompleted,
       'created_at': createdAt.toIso8601String(),
     };
