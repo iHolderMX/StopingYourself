@@ -44,3 +44,12 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .vercel
+
+# Variables de entorno y secretos.
+# Nunca versionar: en una app web todo lo que se empaqueta es publico.
+.env
+.env.*
+!.env.example
+
+# Salida de build de Vercel
+.vercel

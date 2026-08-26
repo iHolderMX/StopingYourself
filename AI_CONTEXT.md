@@ -74,6 +74,23 @@ Reglas al extender el módulo o replicar el patrón:
 - Los errores se muestran con `describeMoneyError`; no hay `catch` que devuelva
   listas vacías disfrazando fallos.
 
+## 3.1 Secretos y configuración
+
+**El proyecto no tiene secretos y debe seguir así.** No hay `.env` versionado
+ni variables de entorno necesarias para compilar o desplegar.
+
+- `AppConfig.supabaseUrl` y `AppConfig.supabaseAnonKey` viven en el código a
+  propósito: la clave es *publishable* y está diseñada para ser pública. Lo que
+  protege los datos son las políticas **RLS** de cada tabla.
+- En Flutter Web **cualquier valor empaquetado es público** (se descarga al
+  navegador). No sirve `.env`, ni `--dart-define`, ni variables del hosting.
+- Si en el futuro se necesita una llave privada (OpenAI, pasarelas de pago,
+  etc.), **va en una Supabase Edge Function**, nunca en el cliente. Ver
+  `DEUDA_TECNICA.md`.
+
+Deploy en Vercel: `vercel.json` hace el rewrite a `index.html` (necesario para
+`go_router`, si no un refresh en `/money` da 404). Output: `build/web`.
+
 ## 4. Backend y Seguridad
 - Actualmente el backend es **Mock/Temporal** para validar UI y flujos.
 - En el futuro se migrará a una solución de bajo costo y alta seguridad.

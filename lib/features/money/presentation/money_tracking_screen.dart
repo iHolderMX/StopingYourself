@@ -1,12 +1,8 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/services/openai_service.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../models/money_record.dart';
 import '../application/money_error_message.dart';
@@ -32,7 +28,6 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
   final _descController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   bool _saving = false;
-  bool _scanning = false;
   String? _editingRecordId;
 
   @override
@@ -47,68 +42,6 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _scanReceipt() async {
-    final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.gallery);
-    if (image == null) return;
-
-    setState(() => _scanning = true);
-    try {
-      final bytes = await image.readAsBytes();
-      final base64Image = base64Encode(bytes);
-      final items = await OpenAIService().extractReceiptData(base64Image);
-
-      if (!mounted) return;
-      if (items.isEmpty) {
-        _showMessage('No se encontraron productos en el ticket');
-        return;
-      }
-      _showScannedItemsDialog(items);
-    } catch (e) {
-      if (mounted) _showMessage('Error al escanear: $e');
-    } finally {
-      if (mounted) setState(() => _scanning = false);
-    }
-  }
-
-  void _showScannedItemsDialog(List<Map<String, dynamic>> items) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Productos detectados'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return ListTile(
-                  title: Text(item['name']?.toString() ?? 'Desconocido'),
-                  trailing: Text('\$${item['price']}'),
-                  onTap: () {
-                    setState(() {
-                      _descController.text = item['name']?.toString() ?? '';
-                      _amountController.text = item['price'].toString();
-                    });
-                    Navigator.pop(dialogContext);
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cerrar'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Future<void> _save() async {
@@ -315,30 +248,12 @@ class _MoneyTrackingScreenState extends ConsumerState<MoneyTrackingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _editingRecordId != null ? 'Editar registro' : 'Nuevo registro',
-                style: GoogleFonts.outfit(
-                  fontSize: r.subtitleFontSize,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (_scanning)
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else
-                IconButton(
-                  icon: const Icon(Icons.document_scanner_outlined),
-                  color: neon,
-                  tooltip: 'Escanear ticket',
-                  onPressed: _scanReceipt,
-                ),
-            ],
+          Text(
+            _editingRecordId != null ? 'Editar registro' : 'Nuevo registro',
+            style: GoogleFonts.outfit(
+              fontSize: r.subtitleFontSize,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           SizedBox(height: r.cardSpacing),
           _typeSelector(theme),
