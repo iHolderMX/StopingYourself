@@ -123,6 +123,8 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
   final _notesController = TextEditingController();
   bool _saving = false;
   bool _showForm = false;
+  bool _showHistoryExpanded = false;
+  RelapseRecord? _editingRecord;
   Timer? _timer;
   DateTime _now = DateTime.now();
 
@@ -156,8 +158,12 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
       _selectedTime.minute,
     );
 
+    final isEditing = _editingRecord != null;
+
     final record = RelapseRecord(
-      id: '${user.id}_${DateTime.now().millisecondsSinceEpoch}',
+      id: isEditing
+          ? _editingRecord!.id
+          : '${user.id}_${DateTime.now().millisecondsSinceEpoch}',
       userId: user.id,
       relapseType: _selectedType,
       customType: _selectedType == 'Otro'
@@ -167,10 +173,15 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
+      createdAt: isEditing ? _editingRecord!.createdAt : DateTime.now(),
     );
 
     try {
-      await ref.read(databaseServiceProvider).insertRelapse(record);
+      if (isEditing) {
+        await ref.read(databaseServiceProvider).updateRelapse(record);
+      } else {
+        await ref.read(databaseServiceProvider).insertRelapse(record);
+      }
     } catch (e) {
       setState(() => _saving = false);
       if (mounted) {
@@ -194,12 +205,17 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
       _customController.clear();
       _notesController.clear();
       _showForm = false;
+      _editingRecord = null;
     });
 
     if (mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Recaida registrada')));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(isEditing ? 'Recaida actualizada' : 'Recaida registrada'),
+        ),
+      );
     }
   }
 
@@ -415,6 +431,12 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                         _now,
                       );
 
+                      final sortedTypeRecords = [...typeRecords]
+                        ..sort((a, b) => a.relapseDate.compareTo(b.relapseDate));
+                      final lastRecord = sortedTypeRecords.isNotEmpty
+                          ? sortedTypeRecords.last
+                          : null;
+
                       return _TypeTrackerCard(
                         typeName: type,
                         lastDate: summary.lastDate,
@@ -425,6 +447,10 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                         neon: neon,
                         streakInfo: streakInfo,
                         onRelapse: () => _relapseNow(type),
+                        lastRecord: lastRecord,
+                        onEditLast: lastRecord != null
+                            ? () => _editRecord(lastRecord)
+                            : null,
                       );
                     }),
                   ],
@@ -562,6 +588,10 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
               if (_showForm) {
                 _selectedDate = DateTime.now();
                 _selectedTime = TimeOfDay.now();
+                _editingRecord = null;
+                _selectedType = relapseTypes.first;
+                _customController.clear();
+                _notesController.clear();
               }
             }),
             child: Container(
@@ -582,7 +612,9 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    _showForm ? 'Ocultar formulario' : 'Nueva recaida',
+                    _showForm
+                        ? 'Ocultar formulario'
+                        : 'Nueva recaída o recaída pasada',
                     style: GoogleFonts.inter(
                       fontSize: r.bodyFontSize,
                       fontWeight: FontWeight.w600,
@@ -604,8 +636,77 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
             recordsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
-              data: (records) =>
-                  _buildHistory(theme, userData, records, r, neon),
+              data: (records) {
+                return Column(
+                  children: [
+                    InkWell(
+                      onTap: records.isEmpty
+                          ? null
+                          : () => setState(() =>
+                              _showHistoryExpanded = !_showHistoryExpanded),
+                      borderRadius: BorderRadius.circular(r.borderRadius - 2),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          vertical: r.isDesktop ? 14 : 12,
+                          horizontal: r.isDesktop ? 20 : 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: neon.withValues(alpha: 0.1),
+                          borderRadius:
+                              BorderRadius.circular(r.borderRadius - 2),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _showHistoryExpanded
+                                  ? Icons.expand_less
+                                  : Icons.expand_more,
+                              color: records.isEmpty
+                                  ? neon.withValues(alpha: 0.4)
+                                  : neon,
+                              size: r.iconSizeMedium,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _showHistoryExpanded
+                                    ? 'Ocultar historial completo'
+                                    : 'Ver historial completo',
+                                style: GoogleFonts.inter(
+                                  fontSize: r.bodyFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: records.isEmpty
+                                      ? neon.withValues(alpha: 0.5)
+                                      : neon,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${records.length} registro${records.length != 1 ? 's' : ''}',
+                              style: GoogleFonts.inter(
+                                fontSize: r.bodyFontSize - 2,
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_showHistoryExpanded) ...[
+                      SizedBox(height: r.cardSpacing),
+                      _buildHistory(
+                        theme,
+                        userData,
+                        records,
+                        r,
+                        neon,
+                        showHeader: false,
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
 
           const SizedBox(height: 40),
@@ -615,55 +716,123 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
   }
 
   Future<void> _relapseNow(String type) async {
-    final user = ref.read(supabaseClientProvider).auth.currentUser;
-    if (user == null) return;
+    final isCustomType = !relapseTypes.contains(type);
 
-    final confirm = await showDialog<bool>(
+    final choice = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('¿Recaíste en $type?'),
-        content: const Text(
-          'Se registrará una nueva recaída ahora mismo.\n'
-          'Tu racha volverá a 0 y la meta será +10% de tu última racha completada.',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'Elige cómo quieres registrarla:',
+            ),
+            SizedBox(height: 10),
+            Text(
+              '• Registrar AHORA: usa la fecha y hora actuales',
+            ),
+            SizedBox(height: 4),
+            Text(
+              '• Recaída PASADA: elige día y hora manualmente',
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () => Navigator.pop(ctx, 0),
             child: const Text('Cancelar'),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sí, recaí'),
+          TextButton.icon(
+            onPressed: () => Navigator.pop(ctx, 2),
+            icon: const Icon(Icons.history),
+            label: const Text('Recaída pasada'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, 1),
+            icon: const Icon(Icons.restart_alt),
+            label: const Text('Ahora mismo'),
           ),
         ],
       ),
     );
 
-    if (confirm != true) return;
+    if (choice == null) return;
 
-    final isCustomType = !relapseTypes.contains(type);
+    if (choice == 1) {
+      // Registrar ahora (comportamiento original)
+      final user = ref.read(supabaseClientProvider).auth.currentUser;
+      if (user == null) return;
 
-    final record = RelapseRecord(
-      id: '${user.id}_${DateTime.now().millisecondsSinceEpoch}',
-      userId: user.id,
-      relapseType: isCustomType ? 'Otro' : type,
-      customType: isCustomType ? type : null,
-      relapseDate: DateTime.now(),
-    );
+      final record = RelapseRecord(
+        id: '${user.id}_${DateTime.now().millisecondsSinceEpoch}',
+        userId: user.id,
+        relapseType: isCustomType ? 'Otro' : type,
+        customType: isCustomType ? type : null,
+        relapseDate: DateTime.now(),
+      );
 
-    try {
-      await ref.read(databaseServiceProvider).insertRelapse(record);
-      ref.invalidate(relapseRecordsProvider(user.id));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      try {
+        await ref.read(databaseServiceProvider).insertRelapse(record);
+        ref.invalidate(relapseRecordsProvider(user.id));
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        }
       }
+      return;
+    }
+
+    if (choice == 2) {
+      // Abrir formulario con el tipo preseleccionado
+      _openFormWithType(type);
     }
   }
 
+  void _openFormWithType(String type) {
+    final isCustom = !relapseTypes.contains(type);
+    setState(() {
+      _editingRecord = null;
+      _selectedType = isCustom ? 'Otro' : type;
+      if (isCustom) {
+        _customController.text = type;
+      } else {
+        _customController.clear();
+      }
+      _selectedDate = DateTime.now();
+      _selectedTime = TimeOfDay.now();
+      _notesController.clear();
+      _showForm = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Scrollable.ensureVisible(context);
+    });
+  }
+
+  void _editRecord(RelapseRecord record) {
+    setState(() {
+      _editingRecord = record;
+      _selectedType = record.relapseType;
+      if (record.relapseType == 'Otro') {
+        _customController.text = record.customType ?? '';
+      } else {
+        _customController.clear();
+      }
+      _selectedDate = record.relapseDate;
+      _selectedTime = TimeOfDay.fromDateTime(record.relapseDate);
+      _notesController.text = record.notes ?? '';
+      _showForm = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Scrollable.ensureVisible(context);
+    });
+  }
+
   Widget _buildForm(ThemeData theme, ResponsiveHelper r, Color neon) {
+    final isEditing = _editingRecord != null;
     return Container(
       padding: EdgeInsets.all(r.cardSpacing + 4),
       decoration: BoxDecoration(
@@ -680,12 +849,30 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Nueva recaida',
-            style: GoogleFonts.outfit(
-              fontSize: r.subtitleFontSize,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isEditing ? 'Editar recaída' : 'Nueva recaída / Recaída pasada',
+                  style: GoogleFonts.outfit(
+                    fontSize: r.subtitleFontSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (isEditing)
+                TextButton.icon(
+                  onPressed: () => setState(() {
+                    _editingRecord = null;
+                    _showForm = false;
+                    _selectedType = relapseTypes.first;
+                    _customController.clear();
+                    _notesController.clear();
+                  }),
+                  icon: const Icon(Icons.cancel),
+                  label: const Text('Cancelar edición'),
+                ),
+            ],
           ),
           SizedBox(height: r.cardSpacing),
           Builder(
@@ -826,8 +1013,12 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                         color: theme.colorScheme.onPrimary,
                       ),
                     )
-                  : const Icon(Icons.save),
-              label: Text(_saving ? 'Guardando...' : 'Registrar recaida'),
+                  : Icon(isEditing ? Icons.save : Icons.add),
+              label: Text(
+                _saving
+                    ? 'Guardando...'
+                    : (isEditing ? 'Actualizar recaída' : 'Registrar recaída'),
+              ),
             ),
           ),
         ],
@@ -840,8 +1031,9 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
     dynamic userData,
     List<RelapseRecord> records,
     ResponsiveHelper r,
-    Color neon,
-  ) {
+    Color neon, {
+    bool showHeader = true,
+  }) {
     // Pre-calcular rachas completadas para cada registro por tipo
     final streakMap = <String, Duration?>{};
     final byType = <String, List<RelapseRecord>>{};
@@ -864,27 +1056,29 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Historial',
-              style: GoogleFonts.outfit(
-                fontSize: r.subtitleFontSize + 2,
-                fontWeight: FontWeight.w600,
+        if (showHeader) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Historial',
+                style: GoogleFonts.outfit(
+                  fontSize: r.subtitleFontSize + 2,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            Text(
-              '${records.length} registros',
-              style: GoogleFonts.inter(
-                fontSize: r.bodyFontSize - 2,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              Text(
+                '${records.length} registros',
+                style: GoogleFonts.inter(
+                  fontSize: r.bodyFontSize - 2,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
               ),
-            ),
-          ],
-        ),
-        SizedBox(height: r.cardSpacing - 4),
-        if (records.isEmpty)
+            ],
+          ),
+          SizedBox(height: r.cardSpacing - 4),
+        ],
+        if (records.isEmpty && showHeader)
           Container(
             padding: EdgeInsets.all(r.isDesktop ? 48 : 36),
             decoration: BoxDecoration(
@@ -912,7 +1106,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
               ),
             ),
           )
-        else
+        else if (records.isNotEmpty)
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -1005,6 +1199,15 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                       ),
                       IconButton(
                         icon: Icon(
+                          Icons.edit_outlined,
+                          color: neon,
+                          size: r.iconSizeMedium - 2,
+                        ),
+                        tooltip: 'Editar recaída',
+                        onPressed: () => _editRecord(rec),
+                      ),
+                      IconButton(
+                        icon: Icon(
                           Icons.delete_outline,
                           color: neon,
                           size: r.iconSizeMedium - 2,
@@ -1039,6 +1242,8 @@ class _TypeTrackerCard extends StatefulWidget {
   final DateTime now;
   final _StreakInfo streakInfo;
   final VoidCallback onRelapse;
+  final RelapseRecord? lastRecord;
+  final VoidCallback? onEditLast;
 
   const _TypeTrackerCard({
     required this.typeName,
@@ -1050,6 +1255,8 @@ class _TypeTrackerCard extends StatefulWidget {
     required this.now,
     required this.streakInfo,
     required this.onRelapse,
+    this.lastRecord,
+    this.onEditLast,
   });
 
   @override
@@ -1151,10 +1358,16 @@ class _TypeTrackerCardState extends State<_TypeTrackerCard> {
                   ],
                 ),
               ),
+              if (widget.onEditLast != null)
+                IconButton(
+                  icon: Icon(Icons.edit_outlined, color: widget.neon, size: 20),
+                  onPressed: widget.onEditLast,
+                  tooltip: 'Corregir última recaída de ${widget.typeName}',
+                ),
               IconButton(
                 icon: Icon(Icons.restart_alt, color: widget.neon, size: 20),
                 onPressed: widget.onRelapse,
-                tooltip: 'Recaí en ${widget.typeName}',
+                tooltip: 'Registrar recaída en ${widget.typeName}',
               ),
             ],
           ),

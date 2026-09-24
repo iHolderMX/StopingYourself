@@ -12,6 +12,7 @@ import '../../models/salary_setting.dart';
 import '../../models/debt.dart';
 import '../../models/health_record.dart';
 import '../../models/daily_activity.dart';
+import '../../models/activity_template.dart';
 import '../../models/saving_goal.dart';
 import '../../models/lol_record.dart';
 import '../../models/monthly_payment.dart';
@@ -194,6 +195,15 @@ class DatabaseService {
 
   Future<void> insertRelapse(RelapseRecord record) async {
     await _client.from('relapse_records').insert(record.toJson());
+  }
+
+  Future<void> updateRelapse(RelapseRecord record) async {
+    try {
+      await _client
+          .from('relapse_records')
+          .update(record.toJson())
+          .eq('id', record.id);
+    } catch (_) {}
   }
 
   Future<void> deleteRelapse(String id) async {
@@ -498,6 +508,112 @@ class DatabaseService {
 
   Future<void> deleteDailyActivity(String id) async {
     await _client.from('daily_activities').delete().eq('id', id);
+  }
+
+  // ============================================================
+  // Plantillas de actividades (hábitos recurrentes)
+  // ============================================================
+  Future<List<ActivityTemplate>> getActivityTemplates(String userId) async {
+    try {
+      final data = await _client
+          .from('activity_templates')
+          .select()
+          .eq('user_id', userId)
+          .eq('is_archived', false)
+          .order('position', ascending: true)
+          .order('created_at', ascending: true);
+      return data.map((e) => ActivityTemplate.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> insertActivityTemplate(ActivityTemplate template) async {
+    await _client.from('activity_templates').insert(template.toJson());
+  }
+
+  Future<void> updateActivityTemplate(ActivityTemplate template) async {
+    await _client
+        .from('activity_templates')
+        .update(template.toJson())
+        .eq('id', template.id);
+  }
+
+  Future<void> deleteActivityTemplate(String id) async {
+    await _client.from('activity_templates').delete().eq('id', id);
+  }
+
+  Future<ActivityTemplate?> getActivityTemplate(String id) async {
+    try {
+      final data = await _client
+          .from('activity_templates')
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      if (data == null) return null;
+      return ActivityTemplate.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Registros diarios generados a partir de una plantilla concreta.
+  Future<List<DailyActivity>> getDailyActivitiesByTemplate(
+    String userId,
+    String templateId,
+  ) async {
+    try {
+      final data = await _client
+          .from('daily_activities')
+          .select()
+          .eq('user_id', userId)
+          .eq('template_id', templateId)
+          .order('scheduled_date', ascending: true);
+      return data.map((e) => DailyActivity.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Genera los registros diarios de las plantillas que corresponden a [date].
+  /// Solo genera para la fecha actual o futuras (no crea historial pasado).
+  Future<void> ensureDailyActivities(String userId, DateTime date) async {
+    try {
+      final templates = await getActivityTemplates(userId);
+      if (templates.isEmpty) return;
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final target = DateTime(date.year, date.month, date.day);
+      if (target.isBefore(today)) return;
+
+      final existing = await getDailyActivities(userId, date: date);
+      final existingTemplateIds = existing
+          .where((a) => a.templateId != null)
+          .map((a) => a.templateId)
+          .toSet();
+
+      for (final template in templates) {
+        if (!template.occursOn(target)) continue;
+        if (existingTemplateIds.contains(template.id)) continue;
+
+        final record = DailyActivity(
+          id: '${userId}_r_${template.id}_${target.millisecondsSinceEpoch}',
+          userId: userId,
+          title: template.title,
+          scheduledDate: target,
+          activityType: template.activityType,
+          targetValue: template.targetValue,
+          currentValue: template.activityType == ActivityType.numeric ? 0 : null,
+          unit: template.unit,
+          stepValue: template.stepValue,
+          templateId: template.id,
+        );
+        await insertDailyActivity(record);
+      }
+    } catch (_) {
+      // No romper la vista si falla la generación.
+    }
   }
 
   // ============================================================

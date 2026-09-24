@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../core/services/database_service.dart';
@@ -11,10 +12,10 @@ final dailyActivitiesProvider =
     FutureProvider.family<
       List<DailyActivity>,
       ({String userId, DateTime date})
-    >((ref, params) {
-      return ref
-          .watch(databaseServiceProvider)
-          .getDailyActivities(params.userId, date: params.date);
+    >((ref, params) async {
+      final db = ref.watch(databaseServiceProvider);
+      await db.ensureDailyActivities(params.userId, params.date);
+      return db.getDailyActivities(params.userId, date: params.date);
     });
 
 class DailyActivitiesScreen extends ConsumerStatefulWidget {
@@ -193,6 +194,17 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
             style: GoogleFonts.inter(
               fontSize: r.subtitleFontSize,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ),
+          SizedBox(height: r.cardSpacing + 4),
+
+          // --- Acceso a hábitos recurrentes ---
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.repeat),
+              label: const Text('Hábitos recurrentes'),
+              onPressed: () => context.push('/activity-templates'),
             ),
           ),
           SizedBox(height: r.cardSpacing + 4),
@@ -680,6 +692,7 @@ class _ActivityTile extends StatelessWidget {
     final target = activity.targetValue ?? 0;
     final unitStr = activity.unit ?? '';
     final progress = activity.progress;
+    final step = activity.stepValue > 0 ? activity.stepValue : 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -703,14 +716,14 @@ class _ActivityTile extends StatelessWidget {
               // Boton restar
               _MiniButton(
                 icon: Icons.remove,
-                onTap: () => onUpdateProgress(-1),
+                onTap: () => onUpdateProgress(-step),
                 neon: neon,
               ),
               SizedBox(width: 6),
               // Boton sumar
               _MiniButton(
                 icon: Icons.add,
-                onTap: () => onUpdateProgress(1),
+                onTap: () => onUpdateProgress(step),
                 neon: neon,
               ),
             ],

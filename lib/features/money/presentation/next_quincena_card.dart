@@ -15,7 +15,12 @@ import 'widgets/salary_editor.dart';
 
 /// Planificacion de los gastos de la proxima quincena.
 class NextQuincenaCard extends ConsumerStatefulWidget {
-  const NextQuincenaCard({super.key});
+  final bool summaryOnly;
+
+  const NextQuincenaCard({
+    super.key,
+    this.summaryOnly = false,
+  });
 
   @override
   ConsumerState<NextQuincenaCard> createState() => _NextQuincenaCardState();
@@ -26,6 +31,7 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
   bool _saving = false;
   final _expenseNameController = TextEditingController();
   final _expenseAmountController = TextEditingController();
+  int? _hoveredSectionIndex;
 
   @override
   void dispose() {
@@ -115,7 +121,9 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
 
     if (userId == null) return const SizedBox.shrink();
 
-    // Se resuelve el salario primero: sin el no hay quincena que planear.
+    final totalDailyEarnings =
+        ref.watch(totalDailyEarningsProvider(userId)).asData?.value ?? 0.0;
+
     return ref.watch(monthlySalaryProvider(userId)).when(
       loading: () => _placeholder(theme, r),
       error: (error, _) => _errorCard(theme, r, describeMoneyError(error)),
@@ -126,7 +134,14 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
         return ref.watch(quincenaExpensesProvider(userId)).when(
           loading: () => _placeholder(theme, r),
           error: (error, _) => _errorCard(theme, r, describeMoneyError(error)),
-          data: (expenses) => _planning(theme, r, userId, salary, expenses),
+          data: (expenses) => _planning(
+            theme,
+            r,
+            userId,
+            salary,
+            expenses,
+            totalDailyEarnings,
+          ),
         );
       },
     );
@@ -305,6 +320,7 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
     String userId,
     double salary,
     List<QuincenaExpense> expenses,
+    double totalDailyEarnings,
   ) {
     final neon = theme.colorScheme.primary;
     final available = SalaryRules.quincenaAvailable(salary);
@@ -377,11 +393,15 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
             ],
           ),
           SizedBox(height: r.cardSpacing + 6),
-          _pieChart(theme, r, available, expenses, remaining),
-          SizedBox(height: r.cardSpacing + 6),
-          _addExpenseForm(theme, r, userId),
-          SizedBox(height: r.cardSpacing + 6),
-          _expensesList(theme, r, userId, expenses),
+          _pieChart(theme, r, available, expenses, remaining, totalDailyEarnings),
+          if (!widget.summaryOnly) ...[
+            SizedBox(height: r.cardSpacing + 2),
+            _chartLegend(theme, r, expenses, remaining, totalDailyEarnings, pieTotal: (SalaryRules.totalQuincenaPlanned(expenses) + (remaining > 0 ? remaining : 0))),
+            SizedBox(height: r.cardSpacing + 6),
+            _addExpenseForm(theme, r, userId),
+            SizedBox(height: r.cardSpacing + 6),
+            _expensesList(theme, r, userId, expenses),
+          ],
         ],
       ),
     );
@@ -571,18 +591,492 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
     );
   }
 
+  String _yieldDaysLabel(double amount, double totalDailyEarnings) {
+    if (totalDailyEarnings <= 0) return 'Sin rendimiento configurado';
+    final days = amount / totalDailyEarnings;
+    if (days >= 1) {
+      return '${days.toStringAsFixed(1)} dias de rendimiento';
+    }
+    final hours = days * 24;
+    if (hours >= 1) {
+      return '${hours.toStringAsFixed(1)} horas de rendimiento';
+    }
+    final minutes = hours * 60;
+    return '${minutes.toStringAsFixed(0)} min de rendimiento';
+  }
+
+  Widget _tooltipWidget(
+    ThemeData theme,
+    ResponsiveHelper r,
+    String label,
+    double amount,
+    double pct,
+    double totalDailyEarnings,
+  ) {
+    final yieldDays = _yieldDaysLabel(amount, totalDailyEarnings);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: r.bodyFontSize - 2,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '\$${amount.toStringAsFixed(2)} (${pct.toStringAsFixed(1)}%)',
+            style: GoogleFonts.inter(
+              fontSize: r.bodyFontSize - 2,
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            height: 1,
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Equivale a:',
+            style: GoogleFonts.inter(
+              fontSize: r.bodyFontSize - 4,
+              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            yieldDays,
+            style: GoogleFonts.outfit(
+              fontSize: r.bodyFontSize - 2,
+              fontWeight: FontWeight.w700,
+              color: MoneyColors.positive,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chartLegend(
+    ThemeData theme,
+    ResponsiveHelper r,
+    List<QuincenaExpense> expenses,
+    double remaining,
+    double totalDailyEarnings, {
+    required double pieTotal,
+  }) {
+    if (expenses.isEmpty && remaining <= 0) {
+      return const SizedBox.shrink();
+    }
+    final List<_LegendItem> items = [];
+    for (var i = 0; i < expenses.length; i++) {
+      items.add(_LegendItem(
+        label: expenses[i].name,
+        amount: expenses[i].amount,
+        color: MoneyColors.chartColorAt(i),
+        isRemaining: false,
+      ));
+    }
+    if (remaining > 0) {
+      items.add(_LegendItem(
+        label: 'Restante',
+        amount: remaining,
+        color: MoneyColors.positive,
+        isRemaining: true,
+      ));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Desglose: toca un elemento para ver mas',
+          style: GoogleFonts.inter(
+            fontSize: r.bodyFontSize - 3,
+            fontWeight: FontWeight.w500,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        SizedBox(height: r.cardSpacing - 6),
+        ...items.asMap().entries.map((entry) {
+          final e = entry.value;
+          final pct = pieTotal > 0 ? e.amount / pieTotal * 100 : 0.0;
+          final yieldDays = _yieldDaysLabel(e.amount, totalDailyEarnings);
+          final backgroundColor = e.isRemaining
+              ? theme.colorScheme.primary.withValues(alpha: 0.06)
+              : theme.colorScheme.surface;
+          final borderColor = e.isRemaining
+              ? MoneyColors.positive.withValues(alpha: 0.3)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.3);
+          return Padding(
+            padding: EdgeInsets.only(bottom: r.cardSpacing - 8),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _showExpenseDetailSheet(
+                  theme,
+                  r,
+                  e.label,
+                  e.amount,
+                  pct,
+                  totalDailyEarnings,
+                  e.color,
+                ),
+                borderRadius: BorderRadius.circular(r.borderRadius - 2),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: r.cardSpacing - 4,
+                    vertical: r.cardSpacing - 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(r.borderRadius - 2),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: e.color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              e.label,
+                              style: GoogleFonts.inter(
+                                fontSize: r.bodyFontSize - 2,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '\$${e.amount.toStringAsFixed(2)}',
+                                style: GoogleFonts.outfit(
+                                  fontSize: r.bodyFontSize - 2,
+                                  fontWeight: FontWeight.bold,
+                                  color: e.color,
+                                ),
+                              ),
+                              Text(
+                                '${pct.toStringAsFixed(1)}%',
+                                style: GoogleFonts.inter(
+                                  fontSize: r.bodyFontSize - 4,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: r.cardSpacing - 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.trending_up,
+                            size: 14,
+                            color: MoneyColors.positive,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              yieldDays,
+                              style: GoogleFonts.outfit(
+                                fontSize: r.bodyFontSize - 3,
+                                fontWeight: FontWeight.w600,
+                                color: MoneyColors.positive,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.info_outline,
+                            size: 14,
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Future<void> _showExpenseDetailSheet(
+    ThemeData theme,
+    ResponsiveHelper r,
+    String label,
+    double amount,
+    double pct,
+    double totalDailyEarnings,
+    Color accentColor,
+  ) async {
+    final yieldDays = _yieldDaysLabel(amount, totalDailyEarnings);
+    return showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(r.borderRadius),
+            ),
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+            ),
+          ),
+          margin: EdgeInsets.only(
+            top: 40,
+            left: 8,
+            right: 8,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          padding: EdgeInsets.all(r.padHorizontal),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              SizedBox(height: r.cardSpacing),
+              Container(
+                padding: EdgeInsets.all(r.cardSpacing - 2),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(r.borderRadius - 2),
+                  border: Border.all(
+                    color: accentColor.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: GoogleFonts.outfit(
+                          fontSize: r.titleFontSize - 2,
+                          fontWeight: FontWeight.w700,
+                          color: accentColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: r.cardSpacing + 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: _metricBox(
+                      theme,
+                      r,
+                      icon: Icons.attach_money,
+                      label: 'Monto',
+                      value: '\$${amount.toStringAsFixed(2)}',
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  SizedBox(width: r.cardSpacing - 4),
+                  Expanded(
+                    child: _metricBox(
+                      theme,
+                      r,
+                      icon: Icons.pie_chart_outline,
+                      label: 'Del total',
+                      value: '${pct.toStringAsFixed(1)}%',
+                      color: accentColor,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: r.cardSpacing + 2),
+              Container(
+                padding: EdgeInsets.all(r.cardSpacing),
+                decoration: BoxDecoration(
+                  color: MoneyColors.positive.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(r.borderRadius - 2),
+                  border: Border.all(color: MoneyColors.positive.withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.trending_up,
+                          size: 18,
+                          color: MoneyColors.positive,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Equivalencia en rendimiento',
+                            style: GoogleFonts.inter(
+                              fontSize: r.bodyFontSize - 1,
+                              fontWeight: FontWeight.w600,
+                              color: MoneyColors.positive,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: r.cardSpacing - 4),
+                    Text(
+                      'Gastar \$${amount.toStringAsFixed(2)} equivale a perder el rendimiento de:',
+                      style: GoogleFonts.inter(
+                        fontSize: r.bodyFontSize - 2,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    SizedBox(height: r.cardSpacing - 6),
+                    Text(
+                      yieldDays,
+                      style: GoogleFonts.outfit(
+                        fontSize: r.titleFontSize - 2,
+                        fontWeight: FontWeight.bold,
+                        color: MoneyColors.positive,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: r.cardSpacing + 4),
+              SizedBox(
+                height: r.buttonHeight,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.check),
+                  label: const Text('Entendido'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _metricBox(
+    ThemeData theme,
+    ResponsiveHelper r, {
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: r.cardSpacing - 4,
+        vertical: r.cardSpacing - 2,
+      ),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(r.borderRadius - 2),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: r.bodyFontSize - 3,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: r.cardSpacing - 8),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: r.bodyFontSize,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _pieChart(
     ThemeData theme,
     ResponsiveHelper r,
     double available,
     List<QuincenaExpense> expenses,
     double remaining,
+    double totalDailyEarnings,
   ) {
     final sections = <PieChartSectionData>[];
     final ringRadius = r.isDesktop ? 60.0 : 48.0;
 
     final expensesTotal = SalaryRules.totalQuincenaPlanned(expenses);
     final pieTotal = expensesTotal + (remaining > 0 ? remaining : 0);
+
+    final sectionLabels = <String>[];
+    final sectionAmounts = <double>[];
+    final sectionColors = <Color>[];
 
     if (expenses.isEmpty && remaining <= 0) {
       sections.add(
@@ -593,16 +1087,21 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
           showTitle: false,
         ),
       );
+      sectionLabels.add('Disponible');
+      sectionAmounts.add(available > 0 ? available : 1);
+      sectionColors.add(MoneyColors.positive);
     } else {
       for (var i = 0; i < expenses.length; i++) {
-        final amount = expenses[i].amount;
+        final expense = expenses[i];
+        final amount = expense.amount;
         final pct = pieTotal > 0 ? amount / pieTotal * 100 : 0.0;
+        final color = MoneyColors.chartColorAt(i);
+        final isHovered = _hoveredSectionIndex == i;
         sections.add(
           PieChartSectionData(
-            color: MoneyColors.chartColorAt(i),
+            color: color,
             value: amount,
-            radius: ringRadius,
-            // Debajo del 8% la etiqueta no cabe dentro del anillo.
+            radius: ringRadius + (isHovered ? 6 : 0),
             showTitle: pct >= 8,
             title: pct >= 8 ? '${pct.toStringAsFixed(0)}%' : '',
             titlePositionPercentageOffset: 0.6,
@@ -613,27 +1112,51 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
             ),
           ),
         );
+        sectionLabels.add(expense.name);
+        sectionAmounts.add(amount);
+        sectionColors.add(color);
       }
 
       if (remaining > 0) {
+        final remainingIdx = expenses.length;
+        final isHovered = _hoveredSectionIndex == remainingIdx;
         sections.add(
           PieChartSectionData(
             color: MoneyColors.positive,
             value: remaining,
-            radius: ringRadius,
+            radius: ringRadius + (isHovered ? 6 : 0),
             showTitle: false,
           ),
         );
+        sectionLabels.add('Restante');
+        sectionAmounts.add(remaining);
+        sectionColors.add(MoneyColors.positive);
       }
     }
 
     final chartSize = r.isDesktop ? 220.0 : 180.0;
+    final hoveredIdx = _hoveredSectionIndex;
+    final isTouchDevice = !r.isDesktop;
+
+    void onSectionTapped(int idx) {
+      if (idx < 0 || idx >= sectionLabels.length) return;
+      _showExpenseDetailSheet(
+        theme,
+        r,
+        sectionLabels[idx],
+        sectionAmounts[idx],
+        pieTotal > 0 ? sectionAmounts[idx] / pieTotal * 100 : 0,
+        totalDailyEarnings,
+        sectionColors[idx],
+      );
+    }
 
     return Center(
       child: SizedBox(
         width: chartSize,
         height: chartSize,
         child: Stack(
+          clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
             PieChart(
@@ -642,6 +1165,36 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
                 centerSpaceRadius: r.isDesktop ? 36 : 30,
                 sectionsSpace: 3,
                 startDegreeOffset: -90,
+                pieTouchData: PieTouchData(
+                  enabled: true,
+                  touchCallback: (event, response) {
+                    final idx = response?.touchedSection?.touchedSectionIndex;
+                    if (event is FlPointerHoverEvent) {
+                      if (idx != null && idx >= 0 && idx < sectionLabels.length) {
+                        if (_hoveredSectionIndex != idx) {
+                          setState(() => _hoveredSectionIndex = idx);
+                        }
+                      } else {
+                        if (_hoveredSectionIndex != null) {
+                          setState(() => _hoveredSectionIndex = null);
+                        }
+                      }
+                    } else if (event is FlPointerExitEvent) {
+                      if (_hoveredSectionIndex != null) {
+                        setState(() => _hoveredSectionIndex = null);
+                      }
+                    } else if (event is FlTapUpEvent) {
+                      if (idx != null && idx >= 0 && idx < sectionLabels.length) {
+                        if (isTouchDevice) {
+                          onSectionTapped(idx);
+                        } else {
+                          setState(() => _hoveredSectionIndex = idx);
+                          onSectionTapped(idx);
+                        }
+                      }
+                    }
+                  },
+                ),
               ),
             ),
             Column(
@@ -664,9 +1217,50 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
                 ),
               ],
             ),
+            if (!isTouchDevice &&
+                hoveredIdx != null &&
+                hoveredIdx >= 0 &&
+                hoveredIdx < sectionLabels.length)
+              Positioned(
+                top: -8,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Transform.translate(
+                      offset: const Offset(0, -100),
+                      child: _tooltipWidget(
+                        theme,
+                        r,
+                        sectionLabels[hoveredIdx],
+                        sectionAmounts[hoveredIdx],
+                        pieTotal > 0
+                            ? sectionAmounts[hoveredIdx] / pieTotal * 100
+                            : 0,
+                        totalDailyEarnings,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
+}
+
+class _LegendItem {
+  final String label;
+  final double amount;
+  final Color color;
+  final bool isRemaining;
+
+  _LegendItem({
+    required this.label,
+    required this.amount,
+    required this.color,
+    required this.isRemaining,
+  });
 }

@@ -1,5 +1,23 @@
 {
+  "framework": null,
+  "buildCommand": "flutter pub get && flutter build web --release",
+  "outputDirectory": "build/web",
+  "installCommand": "if ! command -v flutter &> /dev/null; then git clone https://github.com/flutter/flutter.git -b stable --depth 1 /tmp/flutter && export PATH=\"/tmp/flutter/bin:$PATH\"; else echo \"flutter ya instalado\"; fi && flutter --version",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|otf|ttf|woff|woff2|wasm|bin))",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/flutter_service_worker.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "max-age=0" }
+      ]
+    }
   ]
 }

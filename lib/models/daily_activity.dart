@@ -12,6 +12,8 @@ class DailyActivity {
   final num? currentValue;
   final num? targetValue;
   final String? unit;
+  final num stepValue;
+  final String? templateId;
 
   DailyActivity({
     required this.id,
@@ -25,6 +27,8 @@ class DailyActivity {
     this.currentValue,
     this.targetValue,
     this.unit,
+    this.stepValue = 1,
+    this.templateId,
   }) : createdAt = createdAt ?? DateTime.now();
 
   double get progress {
@@ -43,6 +47,8 @@ class DailyActivity {
     num? currentValue,
     num? targetValue,
     String? unit,
+    num? stepValue,
+    String? templateId,
   }) {
     return DailyActivity(
       id: id ?? this.id,
@@ -56,6 +62,8 @@ class DailyActivity {
       currentValue: currentValue ?? this.currentValue,
       targetValue: targetValue ?? this.targetValue,
       unit: unit ?? this.unit,
+      stepValue: stepValue ?? this.stepValue,
+      templateId: templateId ?? this.templateId,
     );
   }
 
@@ -78,6 +86,8 @@ class DailyActivity {
       currentValue: json['current_value'] as num?,
       targetValue: json['target_value'] as num?,
       unit: json['unit'] as String?,
+      stepValue: (json['step_value'] as num?) ?? 1,
+      templateId: json['template_id'] as String?,
     );
   }
 
@@ -99,6 +109,8 @@ class DailyActivity {
       'current_value': currentValue,
       'target_value': targetValue,
       'unit': unit,
+      'step_value': stepValue,
+      'template_id': templateId,
     };
   }
 }

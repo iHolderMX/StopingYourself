@@ -6,7 +6,7 @@
     "background_color": "#0A0A0F",
     "theme_color": "#0A0A0F",
     "description": "Cada día, un paso más lejos de lo que te detiene.",
-    "orientation": "portrait-primary",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

@@ -243,6 +243,11 @@ DROP POLICY IF EXISTS "Insertar recaida propia" ON public.relapse_records;
 CREATE POLICY "Insertar recaida propia" ON public.relapse_records
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Actualizar recaida propia" ON public.relapse_records;
+CREATE POLICY "Actualizar recaida propia" ON public.relapse_records
+  FOR UPDATE USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
 DROP POLICY IF EXISTS "Eliminar recaida propia" ON public.relapse_records;
 CREATE POLICY "Eliminar recaida propia" ON public.relapse_records
   FOR DELETE USING (auth.uid() = user_id);
