@@ -35,7 +35,6 @@ class _HeatmapDay {
 ) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
-  final yesterday = today.subtract(const Duration(days: 1));
 
   final progress = <DateTime, double>{};
   for (final r in records) {
@@ -44,27 +43,39 @@ class _HeatmapDay {
     if ((progress[d] ?? 0) < p) progress[d] = p;
   }
 
-  final start = DateTime(
+  final grace = template.graceDays;
+
+  // Determinar el DÍA MÁS ANTIGUO con registro para NO iterar infinitamente
+  // (incluye registros manuales anteriores a createdAt, ya que Gus permite
+  //  marcar días pasados aunque la plantilla se creara después).
+  DateTime earliest = DateTime(
     template.createdAt.year,
     template.createdAt.month,
     template.createdAt.day,
   );
-  final grace = template.graceDays;
+  for (final r in records) {
+    final d = DateTime(r.scheduledDate.year, r.scheduledDate.month, r.scheduledDate.day);
+    if (d.isBefore(earliest)) earliest = d;
+  }
 
-  int streak = 0, best = 0, miss = 0;
-  var cursor = start;
-  while (!cursor.isAfter(yesterday)) {
+  // ============================================================
+  // 1) Calcular MEJOR RACHA (best) — itera del más viejo a HOY.
+  //    Incluye todos los registros (independientemente de createdAt).
+  // ============================================================
+  int best = 0, running = 0, miss = 0;
+  var cursor = earliest;
+  while (!cursor.isAfter(today)) {
     final day = DateTime(cursor.year, cursor.month, cursor.day);
     if (template.occursOn(day)) {
       final p = progress[day] ?? 0.0;
       if (p >= 1.0) {
-        streak++;
+        running++;
         miss = 0;
-        if (streak > best) best = streak;
+        if (running > best) best = running;
       } else {
         miss++;
         if (miss > grace) {
-          streak = 0;
+          running = 0;
           miss = 0;
         }
       }
@@ -72,16 +83,42 @@ class _HeatmapDay {
     cursor = cursor.add(const Duration(days: 1));
   }
 
-  // Hoy: si corresponde y ya se cumplió, se suma; si aún no, la racha sigue viva.
-  if (template.occursOn(today)) {
-    final p = progress[today] ?? 0.0;
-    if (p >= 1.0) {
-      streak++;
-      if (streak > best) best = streak;
+  // ============================================================
+  // 2) Calcular RACHA ACTUAL (current) — itera de HOY hacia ATRÁS.
+  //    Reglas:
+  //    • Días que NO están programados (ej: Domingo para Gym L-S)
+  //      -> NO rompen, se saltan (son descanso).
+  //    • Día de HOY: si corresponde y aún no se marca, NO rompe aún.
+  //    • Se permite hasta `graceDays` faltas consecutivas sin romper.
+  // ============================================================
+  int current = 0;
+  int currentMiss = 0;
+  cursor = today;
+  bool allowTodaySkip = true;
+  while (!cursor.isBefore(earliest)) {
+    final day = DateTime(cursor.year, cursor.month, cursor.day);
+    if (template.occursOn(day)) {
+      final p = progress[day] ?? 0.0;
+      if (p >= 1.0) {
+        current++;
+        currentMiss = 0;
+        allowTodaySkip = false;
+      } else {
+        // Caso especial: HOY, corresponde, aún no se marca -> se salta 1 vez
+        final bool isToday = day.isAtSameMomentAs(today);
+        if (isToday && allowTodaySkip) {
+          allowTodaySkip = false;
+          cursor = cursor.subtract(const Duration(days: 1));
+          continue;
+        }
+        currentMiss++;
+        if (currentMiss > grace) break;
+      }
     }
+    cursor = cursor.subtract(const Duration(days: 1));
   }
 
-  return (current: streak, best: best);
+  return (current: current, best: best);
 }
 
 class ActivityCalendarScreen extends ConsumerStatefulWidget {
@@ -96,6 +133,260 @@ class ActivityCalendarScreen extends ConsumerStatefulWidget {
 
 class _ActivityCalendarScreenState extends ConsumerState<ActivityCalendarScreen> {
   static const int _weeks = 12;
+  static const List<String> _weekdayLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+
+  Future<void> _openEditDialog(ActivityTemplate tpl) async {
+    final theme = Theme.of(context);
+    final r = ResponsiveHelper(context);
+    final titleCtrl = TextEditingController(text: tpl.title);
+    int graceDays = tpl.graceDays;
+    final initialFrequency = tpl.frequency;
+    final initialDays = <int>[
+      ...((tpl.frequencyConfig['days_of_week'] as List?)?.cast<num>() ?? const <num>[])
+          .map((e) => e.toInt()),
+    ];
+    // Si no es weekly pero queremos permitir solo weekly/daily por ahora.
+    bool isDaily = initialFrequency == ActivityFrequency.daily;
+    final selectedDays = <int>{...initialDays};
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: theme.scaffoldBackgroundColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, -4)),
+                ],
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Editar hábito',
+                          style: GoogleFonts.outfit(
+                            fontSize: r.titleFontSize - 2,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: r.cardSpacing),
+                    TextField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre del hábito',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.edit_note),
+                      ),
+                      style: GoogleFonts.inter(fontSize: r.bodyFontSize),
+                    ),
+                    SizedBox(height: r.cardSpacing + 4),
+                    Text(
+                      'Días de gracia permitidos (faltas sin romper la racha):',
+                      style: GoogleFonts.inter(
+                        fontSize: r.bodyFontSize - 1,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    StatefulBuilder(
+                      builder: (_, _) => Row(
+                        children: [
+                          Expanded(
+                            child: Slider(
+                              value: graceDays.toDouble(),
+                              min: 0,
+                              max: 7,
+                              divisions: 7,
+                              label: '$graceDays',
+                              onChanged: (v) => setModalState(() => graceDays = v.toInt()),
+                            ),
+                          ),
+                          Container(
+                            width: 56,
+                            alignment: Alignment.center,
+                            child: Text(
+                              '$graceDays',
+                              style: GoogleFonts.outfit(
+                                fontSize: r.bodyFontSize + 2,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: r.cardSpacing),
+                    Text(
+                      'Periodicidad:',
+                      style: GoogleFonts.inter(
+                        fontSize: r.bodyFontSize - 1,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Todos los días'),
+                          selected: isDaily,
+                          onSelected: (v) =>
+                              setModalState(() => isDaily = v),
+                        ),
+                        ChoiceChip(
+                          label: const Text('Días específicos'),
+                          selected: !isDaily,
+                          onSelected: (v) =>
+                              setModalState(() => isDaily = !v),
+                        ),
+                      ],
+                    ),
+                    if (!isDaily) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Selecciona los días:',
+                        style: GoogleFonts.inter(
+                          fontSize: r.bodyFontSize - 1,
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(7, (i) {
+                          final day = i + 1; // 1..7
+                          final isSel = selectedDays.contains(day);
+                          return GestureDetector(
+                            onTap: () => setModalState(() {
+                              isSel ? selectedDays.remove(day) : selectedDays.add(day);
+                            }),
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: isSel
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.surface,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSel
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.onSurface.withValues(alpha: 0.15),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Text(
+                                _weekdayLabels[i],
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w600,
+                                  color: isSel
+                                      ? theme.colorScheme.onPrimary
+                                      : theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ],
+                    SizedBox(height: r.cardSpacing + 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.save),
+                        label: const Text('Guardar cambios'),
+                        onPressed: () async {
+                          final title = titleCtrl.text.trim();
+                          if (title.isEmpty) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('Ingresa un nombre')),
+                            );
+                            return;
+                          }
+                          if (!isDaily && selectedDays.isEmpty) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('Selecciona al menos 1 día')),
+                            );
+                            return;
+                          }
+
+                          final db = ref.read(databaseServiceProvider);
+                          final finalFreq = isDaily
+                              ? ActivityFrequency.daily
+                              : ActivityFrequency.weekly;
+                          final Map<String, dynamic> finalConfig = isDaily
+                              ? const {}
+                              : {
+                                  'days_of_week': <int>[...selectedDays]..sort(),
+                                };
+
+                          final updated = tpl.copyWith(
+                            title: title,
+                            graceDays: graceDays,
+                            frequency: finalFreq,
+                            frequencyConfig: finalConfig,
+                          );
+                          try {
+                            await db.updateActivityTemplate(updated);
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (mounted) {
+                              // Forzar recarga del provider actual
+                              final user = ref.read(supabaseClientProvider).auth.currentUser;
+                              if (user != null) {
+                                ref.invalidate(activityCalendarProvider((
+                                  userId: user.id,
+                                  templateId: widget.templateId,
+                                )));
+                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Cambios guardados ✅')),
+                              );
+                            }
+                          } catch (e) {
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text('Error al guardar: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   List<List<_HeatmapDay>> _buildWeeks(List<DailyActivity> records) {
     final now = DateTime.now();
@@ -190,6 +481,12 @@ class _ActivityCalendarScreenState extends ConsumerState<ActivityCalendarScreen>
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (dataAsync?.value?.template != null)
+                IconButton(
+                  tooltip: 'Editar hábito',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => _openEditDialog(dataAsync!.value!.template!),
+                ),
             ],
           ),
           const SizedBox(height: 6),

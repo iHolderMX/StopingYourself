@@ -576,16 +576,20 @@ class DatabaseService {
   }
 
   /// Genera los registros diarios de las plantillas que corresponden a [date].
-  /// Solo genera para la fecha actual o futuras (no crea historial pasado).
+  /// Permite generar retroactivamente para CUALQUIER fecha pasada (para dar
+  /// seguimiento de días anteriores) siempre que la plantilla corresponda a
+  /// ese día de la semana/mes/intervalo, sin importar cuándo fue creada.
+  ///
+  /// Protección anti-duplicado: si ya existe una actividad en [date] con el
+  /// el mismo título que la plantilla pero sin templateId (creada manualmente),
+  /// no inserta una nueva, sino que le asigna el templateId para ligarla al registro
+  /// existente para futuras referencias.
   Future<void> ensureDailyActivities(String userId, DateTime date) async {
     try {
       final templates = await getActivityTemplates(userId);
       if (templates.isEmpty) return;
 
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
       final target = DateTime(date.year, date.month, date.day);
-      if (target.isBefore(today)) return;
 
       final existing = await getDailyActivities(userId, date: date);
       final existingTemplateIds = existing
@@ -595,7 +599,23 @@ class DatabaseService {
 
       for (final template in templates) {
         if (!template.occursOn(target)) continue;
+
         if (existingTemplateIds.contains(template.id)) continue;
+
+        final duplicateManual = existing.where(
+          (a) =>
+              a.templateId == null &&
+              a.title.trim().toLowerCase() ==
+                  template.title.trim().toLowerCase(),
+        );
+        if (duplicateManual.isNotEmpty) {
+          final match = duplicateManual.first;
+          final updated = match.copyWith(templateId: template.id);
+          if (updated != match) {
+            await updateDailyActivity(updated);
+          }
+          continue;
+        }
 
         final record = DailyActivity(
           id: '${userId}_r_${template.id}_${target.millisecondsSinceEpoch}',

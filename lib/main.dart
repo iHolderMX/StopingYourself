@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/services/supabase_service.dart';
@@ -25,6 +26,12 @@ void main() async {
     await initializeSupabase();
   } catch (e) {
     debugPrint('Error inicializando Supabase: $e');
+  }
+
+  try {
+    await initializeDateFormatting('es');
+  } catch (e) {
+    debugPrint('Error inicializando formateo de fechas: $e');
   }
 
   runApp(const ProviderScope(child: StopingYourselfApp()));
