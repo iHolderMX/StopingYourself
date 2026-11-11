@@ -193,6 +193,22 @@ class DatabaseService {
     }
   }
 
+  /// Carga ligera para el panel principal: trae solo tipo y fecha, sin notas
+  /// ni metadatos. Es suficiente para los contadores, la racha y la proxima
+  /// meta. El historial completo se carga aparte, solo al abrirlo.
+  Future<List<RelapseRecord>> getRelapseSummary(String userId) async {
+    try {
+      final data = await _client
+          .from('relapse_records')
+          .select('id, relapse_type, custom_type, relapse_date')
+          .eq('user_id', userId)
+          .order('relapse_date', ascending: false);
+      return data.map((e) => RelapseRecord.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<void> insertRelapse(RelapseRecord record) async {
     await _client.from('relapse_records').insert(record.toJson());
   }

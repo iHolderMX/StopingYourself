@@ -3,34 +3,14 @@ import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../core/services/database_service.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../models/relapse_record.dart';
-
-final relapseRecordsProvider =
-    FutureProvider.family<List<RelapseRecord>, String>((ref, userId) {
-      return ref.watch(databaseServiceProvider).getRelapseRecords(userId);
-    });
-
-final relapseTypes = const [
-  'Cero',
-  'Alcohol',
-  'Tabaco',
-  'Drogas',
-  'Juego',
-  'Comida',
-  'Tecnologia / Redes',
-  'Otro',
-];
-
-Color _typeColor(int i, Color neon) {
-  // Tonos de azul neon, variando opacidad
-  final alphas = [1.0, 0.85, 0.7, 0.55, 0.45, 0.35, 0.25, 0.15];
-  return neon.withValues(alpha: alphas[i % alphas.length]);
-}
+import '../relapse_data.dart';
 
 class _Milestone {
   final String label;
@@ -79,34 +59,6 @@ final _milestones = const [
   _Milestone('1 año', '🌳', Duration(days: 365)),
 ];
 
-String _formatDuration(Duration d) {
-  final days = d.inDays;
-  final hours = d.inHours % 24;
-  final minutes = d.inMinutes % 60;
-  final seconds = d.inSeconds % 60;
-
-  final parts = <String>[];
-  if (days >= 365) {
-    final years = days ~/ 365;
-    final months = (days % 365) ~/ 30;
-    parts.add('$years a${years > 1 ? 'ños' : 'ño'}');
-    if (months > 0) parts.add('$months m');
-  } else if (days >= 30) {
-    final months = days ~/ 30;
-    final remaining = days % 30;
-    parts.add('$months m${months > 1 ? 'eses' : 'es'}');
-    if (remaining > 0) parts.add('$remaining d');
-  } else if (days >= 1) {
-    parts.add('$days d');
-  }
-
-  if (hours > 0) parts.add('$hours h');
-  parts.add('$minutes min');
-  parts.add('$seconds s');
-
-  return parts.join(' ');
-}
-
 class RelapseTrackingScreen extends ConsumerStatefulWidget {
   const RelapseTrackingScreen({super.key});
 
@@ -123,7 +75,6 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
   final _notesController = TextEditingController();
   bool _saving = false;
   bool _showForm = false;
-  bool _showHistoryExpanded = false;
   RelapseRecord? _editingRecord;
   Timer? _timer;
   DateTime _now = DateTime.now();
@@ -195,7 +146,8 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
       return;
     }
 
-    ref.invalidate(relapseRecordsProvider(user.id));
+    ref.invalidate(relapseSummaryProvider(user.id));
+    ref.invalidate(relapseHistoryProvider(user.id));
 
     setState(() {
       _saving = false;
@@ -292,10 +244,9 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(supabaseClientProvider).auth.currentUser;
     final recordsAsync = user != null
-        ? ref.watch(relapseRecordsProvider(user.id))
+        ? ref.watch(relapseSummaryProvider(user.id))
         : null;
     final theme = Theme.of(context);
-    final userData = user;
     final r = ResponsiveHelper(context);
     final neon = theme.colorScheme.primary;
 
@@ -424,7 +375,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                       final colorIdx = relapseTypes.contains(type)
                           ? relapseTypes.indexOf(type)
                           : typeKeys.indexOf(type);
-                      final accentColor = _typeColor(colorIdx, neon);
+                      final accentColor = relapseTypeColor(colorIdx, neon);
                       final typeRecords = _recordsForType(type, records);
                       final streakInfo = _calculateStreakInfo(
                         typeRecords,
@@ -507,7 +458,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                                           .toDouble();
                                       return PieChartSectionData(
                                         value: value,
-                                        color: _typeColor(i, neon),
+                                        color: relapseTypeColor(i, neon),
                                         radius: 55,
                                         titleStyle: GoogleFonts.outfit(
                                           fontSize: 11,
@@ -543,7 +494,7 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
                                           width: 10,
                                           height: 10,
                                           decoration: BoxDecoration(
-                                            color: _typeColor(idx, neon),
+                                            color: relapseTypeColor(idx, neon),
                                             shape: BoxShape.circle,
                                           ),
                                         ),
@@ -634,77 +585,58 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
 
           if (recordsAsync != null)
             recordsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
+              loading: () => const SizedBox(),
+              error: (e, _) => const SizedBox(),
               data: (records) {
-                return Column(
-                  children: [
-                    InkWell(
-                      onTap: records.isEmpty
-                          ? null
-                          : () => setState(() =>
-                              _showHistoryExpanded = !_showHistoryExpanded),
-                      borderRadius: BorderRadius.circular(r.borderRadius - 2),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          vertical: r.isDesktop ? 14 : 12,
-                          horizontal: r.isDesktop ? 20 : 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: neon.withValues(alpha: 0.1),
-                          borderRadius:
-                              BorderRadius.circular(r.borderRadius - 2),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _showHistoryExpanded
-                                  ? Icons.expand_less
-                                  : Icons.expand_more,
-                              color: records.isEmpty
-                                  ? neon.withValues(alpha: 0.4)
-                                  : neon,
-                              size: r.iconSizeMedium,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _showHistoryExpanded
-                                    ? 'Ocultar historial completo'
-                                    : 'Ver historial completo',
-                                style: GoogleFonts.inter(
-                                  fontSize: r.bodyFontSize,
-                                  fontWeight: FontWeight.w600,
-                                  color: records.isEmpty
-                                      ? neon.withValues(alpha: 0.5)
-                                      : neon,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '${records.length} registro${records.length != 1 ? 's' : ''}',
-                              style: GoogleFonts.inter(
-                                fontSize: r.bodyFontSize - 2,
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.5),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                if (records.isEmpty) return const SizedBox();
+                return InkWell(
+                  onTap: _openHistory,
+                  borderRadius: BorderRadius.circular(r.borderRadius - 2),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      vertical: r.isDesktop ? 14 : 12,
+                      horizontal: r.isDesktop ? 20 : 16,
                     ),
-                    if (_showHistoryExpanded) ...[
-                      SizedBox(height: r.cardSpacing),
-                      _buildHistory(
-                        theme,
-                        userData,
-                        records,
-                        r,
-                        neon,
-                        showHeader: false,
-                      ),
-                    ],
-                  ],
+                    decoration: BoxDecoration(
+                      color: neon.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(r.borderRadius - 2),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.history,
+                          color: neon,
+                          size: r.iconSizeMedium,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Ver historial completo',
+                            style: GoogleFonts.inter(
+                              fontSize: r.bodyFontSize,
+                              fontWeight: FontWeight.w600,
+                              color: neon,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${records.length} registro${records.length != 1 ? 's' : ''}',
+                          style: GoogleFonts.inter(
+                            fontSize: r.bodyFontSize - 2,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.chevron_right,
+                          color: neon.withValues(alpha: 0.7),
+                          size: r.iconSizeMedium,
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
@@ -713,6 +645,16 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
         ],
       ),
     );
+  }
+
+  /// Abre el historial en una pantalla aparte; los datos completos solo se
+  /// cargan al abrirla. Si el usuario edita un registro alli, vuelve para
+  /// abrir el formulario de esta pantalla.
+  Future<void> _openHistory() async {
+    final edited = await context.push<RelapseRecord>('/relapse/history');
+    if (edited != null && mounted) {
+      _editRecord(edited);
+    }
   }
 
   Future<void> _relapseNow(String type) async {
@@ -775,7 +717,8 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
 
       try {
         await ref.read(databaseServiceProvider).insertRelapse(record);
-        ref.invalidate(relapseRecordsProvider(user.id));
+        ref.invalidate(relapseSummaryProvider(user.id));
+    ref.invalidate(relapseHistoryProvider(user.id));
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(
@@ -1026,209 +969,6 @@ class _RelapseTrackingScreenState extends ConsumerState<RelapseTrackingScreen> {
     );
   }
 
-  Widget _buildHistory(
-    ThemeData theme,
-    dynamic userData,
-    List<RelapseRecord> records,
-    ResponsiveHelper r,
-    Color neon, {
-    bool showHeader = true,
-  }) {
-    // Pre-calcular rachas completadas para cada registro por tipo
-    final streakMap = <String, Duration?>{};
-    final byType = <String, List<RelapseRecord>>{};
-    for (final rec in records) {
-      final key = rec.relapseType == 'Otro'
-          ? (rec.customType ?? 'Otro')
-          : rec.relapseType;
-      (byType[key] ??= []).add(rec);
-    }
-    for (final entries in byType.values) {
-      entries.sort((a, b) => a.relapseDate.compareTo(b.relapseDate));
-      for (int i = 0; i < entries.length; i++) {
-        final streak = i == 0
-            ? null
-            : entries[i].relapseDate.difference(entries[i - 1].relapseDate);
-        streakMap[entries[i].id] = streak;
-      }
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (showHeader) ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Historial',
-                style: GoogleFonts.outfit(
-                  fontSize: r.subtitleFontSize + 2,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                '${records.length} registros',
-                style: GoogleFonts.inter(
-                  fontSize: r.bodyFontSize - 2,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: r.cardSpacing - 4),
-        ],
-        if (records.isEmpty && showHeader)
-          Container(
-            padding: EdgeInsets.all(r.isDesktop ? 48 : 36),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(r.borderRadius),
-            ),
-            child: Center(
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.check_circle_outline,
-                    size: r.iconSizeLarge,
-                    color: neon,
-                  ),
-                  SizedBox(height: r.cardSpacing),
-                  Text(
-                    'No hay recaidas registradas',
-                    style: GoogleFonts.inter(
-                      fontSize: r.bodyFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else if (records.isNotEmpty)
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: records.length,
-            separatorBuilder: (_, i) => SizedBox(height: r.cardSpacing - 4),
-            itemBuilder: (context, index) {
-              final rec = records[index];
-              final prevStreak = streakMap[rec.id];
-              return Material(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(r.borderRadius - 2),
-                child: Padding(
-                  padding: EdgeInsets.all(r.cardSpacing),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: r.isDesktop ? 52 : 48,
-                        height: r.isDesktop ? 52 : 48,
-                        decoration: BoxDecoration(
-                          color: neon.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          Icons.warning_rounded,
-                          color: neon,
-                          size: r.iconSizeMedium,
-                        ),
-                      ),
-                      SizedBox(width: r.cardSpacing - 2),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              rec.relapseType == 'Otro'
-                                  ? (rec.customType ?? 'Otro')
-                                  : rec.relapseType,
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w600,
-                                fontSize: r.bodyFontSize,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${DateFormat('dd/MM/yyyy').format(rec.relapseDate)}  ${DateFormat('HH:mm:ss').format(rec.relapseDate)}',
-                              style: GoogleFonts.inter(
-                                fontSize: r.bodyFontSize - 2,
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.45,
-                                ),
-                              ),
-                            ),
-                            if (prevStreak != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.timer_outlined,
-                                      size: 12,
-                                      color: neon.withValues(alpha: 0.5),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Racha anterior: ${_formatDuration(prevStreak)}',
-                                      style: GoogleFonts.inter(
-                                        fontSize: r.bodyFontSize - 3,
-                                        color: neon.withValues(alpha: 0.6),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            if (rec.notes != null && rec.notes!.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  rec.notes!,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.inter(
-                                    fontSize: r.bodyFontSize - 2,
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.5),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.edit_outlined,
-                          color: neon,
-                          size: r.iconSizeMedium - 2,
-                        ),
-                        tooltip: 'Editar recaída',
-                        onPressed: () => _editRecord(rec),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.delete_outline,
-                          color: neon,
-                          size: r.iconSizeMedium - 2,
-                        ),
-                        onPressed: () async {
-                          if (userData == null) return;
-                          await ref
-                              .read(databaseServiceProvider)
-                              .deleteRelapse(rec.id);
-                          ref.invalidate(relapseRecordsProvider(userData.id));
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-      ],
-    );
-  }
 }
 
 // ============================================================
@@ -1390,7 +1130,7 @@ class _TypeTrackerCardState extends State<_TypeTrackerCard> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatDuration(widget.elapsed),
+                      formatRelapseDuration(widget.elapsed),
                       style: GoogleFonts.outfit(
                         fontSize: r.isDesktop ? 32 : 26,
                         fontWeight: FontWeight.bold,
@@ -1553,6 +1293,114 @@ class _TypeTrackerCardState extends State<_TypeTrackerCard> {
             ],
           ),
           SizedBox(height: r.cardSpacing),
+          // --- Promedio de recaida ---
+          Container(
+            padding: EdgeInsets.all(r.cardSpacing - 2),
+            decoration: BoxDecoration(
+              color: widget.accentColor.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.insights, size: 18, color: widget.accentColor),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Promedio de recaida',
+                        style: GoogleFonts.inter(
+                          fontSize: r.bodyFontSize - 3,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.55,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (widget.streakInfo.averageInterval != null)
+                      Text(
+                        'cada ${widget.streakInfo.averageLabel}',
+                        style: GoogleFonts.outfit(
+                          fontSize: r.bodyFontSize - 2,
+                          fontWeight: FontWeight.w700,
+                          color: widget.accentColor,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                if (widget.streakInfo.averageInterval == null)
+                  Text(
+                    'Registra al menos 2 recaidas para ver tu promedio',
+                    style: GoogleFonts.inter(
+                      fontSize: r.bodyFontSize - 3,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
+                  )
+                else ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: SizedBox(
+                      height: 6,
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            color: widget.accentColor.withValues(alpha: 0.12),
+                          ),
+                          AnimatedFractionallySizedBox(
+                            duration: const Duration(milliseconds: 500),
+                            curve: Curves.easeOutCubic,
+                            widthFactor: widget.streakInfo.averageProgress,
+                            child: Container(
+                              color: widget.streakInfo.beatsAverage
+                                  ? widget.neon
+                                  : widget.accentColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.streakInfo.beatsAverage
+                              ? 'Vas bien: superaste tu promedio'
+                              : 'Aun por debajo de tu promedio',
+                          style: GoogleFonts.inter(
+                            fontSize: r.bodyFontSize - 3,
+                            fontWeight: widget.streakInfo.beatsAverage
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: widget.streakInfo.beatsAverage
+                                ? widget.neon
+                                : theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${(widget.streakInfo.averageRatio * 100).toInt()}%',
+                        style: GoogleFonts.outfit(
+                          fontSize: r.bodyFontSize - 2,
+                          fontWeight: FontWeight.w700,
+                          color: widget.streakInfo.beatsAverage
+                              ? widget.neon
+                              : widget.accentColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(height: r.cardSpacing),
           ...visibleMilestones.map((m) {
             final progress =
                 (widget.elapsed.inMilliseconds / m.duration.inMilliseconds)
@@ -1678,21 +1526,43 @@ class _StreakInfo {
   final Duration? lastCompletedStreak;
   final Duration nextGoal;
 
+  /// Tiempo promedio entre recaidas del mismo tipo. Null si aun no hay al
+  /// menos 2 registros para calcularlo.
+  final Duration? averageInterval;
+
   const _StreakInfo({
     required this.currentStreak,
     this.bestStreak,
     this.lastCompletedStreak,
     required this.nextGoal,
+    this.averageInterval,
   });
 
   String get bestStreakLabel =>
-      bestStreak != null ? _formatDuration(bestStreak!) : '--';
+      bestStreak != null ? formatRelapseDuration(bestStreak!) : '--';
 
-  String get nextGoalLabel => _formatDuration(nextGoal);
+  String get nextGoalLabel => formatRelapseDuration(nextGoal);
 
   double get goalProgress => nextGoal.inMilliseconds > 0
       ? (currentStreak.inMilliseconds / nextGoal.inMilliseconds).clamp(0.0, 1.0)
       : 0.0;
+
+  String get averageLabel => averageInterval != null
+      ? formatRelapseDurationCompact(averageInterval!)
+      : '--';
+
+  /// Cuantas veces el tiempo actual sin recaer supera el promedio. 1.0 = ya
+  /// igualo su intervalo habitual, > 1.0 = ya vencio su promedio.
+  double get averageRatio =>
+      averageInterval != null && averageInterval!.inMilliseconds > 0
+      ? currentStreak.inMilliseconds / averageInterval!.inMilliseconds
+      : 0.0;
+
+  /// Progreso acotado 0-1 para la barra.
+  double get averageProgress => averageRatio.clamp(0.0, 1.0);
+
+  /// True cuando el tiempo sin recaer ya alcanzo o supero el promedio.
+  bool get beatsAverage => averageInterval != null && averageRatio >= 1.0;
 }
 
 _StreakInfo _calculateStreakInfo(
@@ -1705,6 +1575,16 @@ _StreakInfo _calculateStreakInfo(
 
   final currentStreak = now.difference(sorted.last.relapseDate);
 
+  // Promedio entre recaidas: lapso total dividido entre el numero de
+  // intervalos. Ej: 10 recaidas en 10 dias -> 1 recaida por dia.
+  Duration? averageInterval;
+  if (sorted.length >= 2) {
+    final span = sorted.last.relapseDate.difference(sorted.first.relapseDate);
+    averageInterval = Duration(
+      milliseconds: (span.inMilliseconds / (sorted.length - 1)).round(),
+    );
+  }
+
   // Si solo hay 1 recaida, no hay racha completada historica
   if (sorted.length < 2) {
     const minGoal = Duration(hours: 1);
@@ -1716,6 +1596,7 @@ _StreakInfo _calculateStreakInfo(
       bestStreak: null,
       lastCompletedStreak: null,
       nextGoal: rawGoal > minGoal ? rawGoal : minGoal,
+      averageInterval: null,
     );
   }
 
@@ -1740,5 +1621,6 @@ _StreakInfo _calculateStreakInfo(
     bestStreak: best,
     lastCompletedStreak: lastCompleted,
     nextGoal: Duration(milliseconds: nextMs),
+    averageInterval: averageInterval,
   );
 }
