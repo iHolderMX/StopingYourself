@@ -6,7 +6,8 @@ import 'package:intl/intl.dart';
 import '../../../core/services/database_service.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/utils/responsive_helper.dart';
-import '../../../models/activity_template.dart' show ActivityFrequency, ActivityTemplate;
+import '../../../models/activity_template.dart'
+    show ActivityFrequency, ActivityTemplate;
 import '../../../models/daily_activity.dart';
 import 'activity_templates_screen.dart' show activityTemplatesProvider;
 
@@ -22,7 +23,8 @@ String _buildFrequencyLabel(
       return 'Todos los días';
     case ActivityFrequency.weekly:
       final days =
-          (tpl.frequencyConfig['days_of_week'] as List?)?.cast<int>() ?? const <int>[];
+          (tpl.frequencyConfig['days_of_week'] as List?)?.cast<int>() ??
+          const <int>[];
       if (days.isEmpty) return 'Semanal';
       if (days.length == 7) return 'Todos los días';
       if (_sameList(days, [1, 2, 3, 4, 5])) return 'Lun-Vie';
@@ -33,7 +35,8 @@ String _buildFrequencyLabel(
       return sb.isNotEmpty ? sb.join(', ') : 'Semanal';
     case ActivityFrequency.monthly:
       final days =
-          (tpl.frequencyConfig['days_of_month'] as List?)?.cast<int>() ?? const <int>[];
+          (tpl.frequencyConfig['days_of_month'] as List?)?.cast<int>() ??
+          const <int>[];
       if (days.isEmpty) return 'Mensual';
       return 'Días ${days.join(', ')}';
     case ActivityFrequency.custom:
@@ -71,53 +74,64 @@ class _AggregatedActivity {
   final int count;
   final DateTime lastDate;
   final DailyActivity sample;
+  final bool isHabit;
 
   const _AggregatedActivity({
     required this.title,
     required this.count,
     required this.lastDate,
     required this.sample,
+    required this.isHabit,
   });
 }
 
-final activityHistoryProvider = FutureProvider.family<
-  List<_AggregatedActivity>,
-  String
->((ref, userId) async {
-  final db = ref.watch(databaseServiceProvider);
-  final all = await db.getDailyActivities(userId);
-  final map = <String, List<DailyActivity>>{};
-  for (final a in all) {
-    if (a.templateId != null) continue;
-    map.putIfAbsent(a.title, () => []).add(a);
-  }
-  final result = <_AggregatedActivity>[];
-  for (final entry in map.entries) {
-    final list = entry.value;
-    list.sort(
-      (a, b) => b.scheduledDate.compareTo(a.scheduledDate),
-    );
-    result.add(
-      _AggregatedActivity(
-        title: entry.key,
-        count: list.length,
-        lastDate: list.first.scheduledDate,
-        sample: list.first,
-      ),
-    );
-  }
-  result.sort((a, b) => b.count.compareTo(a.count));
-  return result;
-});
+final activityHistoryProvider =
+    FutureProvider.family<List<_AggregatedActivity>, String>((
+      ref,
+      userId,
+    ) async {
+      final db = ref.watch(databaseServiceProvider);
+      final all = await db.getDailyActivities(userId);
+      final map = <String, List<DailyActivity>>{};
+      for (final a in all) {
+        // Los hábitos se agrupan por su plantilla; las puntuales, por título.
+        final key = a.templateId != null
+            ? 'tpl:${a.templateId}'
+            : 'man:${a.title}';
+        map.putIfAbsent(key, () => []).add(a);
+      }
+      final result = <_AggregatedActivity>[];
+      for (final entry in map.entries) {
+        final list = entry.value;
+        list.sort((a, b) => b.scheduledDate.compareTo(a.scheduledDate));
+        result.add(
+          _AggregatedActivity(
+            title: list.first.title,
+            count: list.length,
+            lastDate: list.first.scheduledDate,
+            sample: list.first,
+            isHabit: list.first.templateId != null,
+          ),
+        );
+      }
+      result.sort((a, b) => b.count.compareTo(a.count));
+      return result;
+    });
 
-final _completedCountProvider = FutureProvider.family<
-  int,
-  ({String userId, String title})
->((ref, params) async {
-  final db = ref.watch(databaseServiceProvider);
-  final all = await db.getDailyActivities(params.userId);
-  return all.where((a) => a.title == params.title && a.isCompleted).length;
-});
+final _completedCountProvider =
+    FutureProvider.family<
+      int,
+      ({String userId, String? templateId, String title})
+    >((ref, params) async {
+      final db = ref.watch(databaseServiceProvider);
+      final all = await db.getDailyActivities(params.userId);
+      return all.where((a) {
+        if (params.templateId != null) {
+          return a.templateId == params.templateId && a.isCompleted;
+        }
+        return a.templateId == null && a.title == params.title && a.isCompleted;
+      }).length;
+    });
 
 class DailyActivitiesScreen extends ConsumerStatefulWidget {
   const DailyActivitiesScreen({super.key});
@@ -195,10 +209,12 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
       return;
     }
 
-    if (_isTemplate && _frequencyShortcut == _FrequencyShortcut.custom && _selectedWeekdays.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selecciona al menos un día')));
+    if (_isTemplate &&
+        _frequencyShortcut == _FrequencyShortcut.custom &&
+        _selectedWeekdays.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona al menos un día')),
+      );
       return;
     }
 
@@ -206,16 +222,16 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
     if (_activityType == ActivityType.numeric) {
       final raw = _targetController.text.trim();
       if (raw.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Ingresa un valor objetivo')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ingresa un valor objetivo')),
+        );
         return;
       }
       targetValue = num.tryParse(raw);
       if (targetValue == null || targetValue <= 0) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('El valor debe ser mayor a 0')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El valor debe ser mayor a 0')),
+        );
         return;
       }
     }
@@ -268,7 +284,9 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
         _selectedWeekdays.clear();
       });
       if (mounted) {
-        final msg = _isTemplate ? 'Hábito recurrente creado' : 'Actividad agregada';
+        final msg = _isTemplate
+            ? 'Hábito recurrente creado'
+            : 'Actividad agregada';
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(msg)));
@@ -305,7 +323,10 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
   Future<void> _updateProgress(DailyActivity activity, num delta) async {
     final user = ref.read(supabaseClientProvider).auth.currentUser;
     if (user == null) return;
-    final newValue = ((activity.currentValue ?? 0) + delta).clamp(0, activity.targetValue ?? 999999);
+    final newValue = ((activity.currentValue ?? 0) + delta).clamp(
+      0,
+      activity.targetValue ?? 999999,
+    );
     final isNowComplete = newValue >= (activity.targetValue ?? 1);
     final updated = activity.copyWith(
       currentValue: newValue,
@@ -344,7 +365,11 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.manage_history, color: theme.colorScheme.primary, size: 22),
+                  Icon(
+                    Icons.manage_history,
+                    color: theme.colorScheme.primary,
+                    size: 22,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Historial de actividades',
@@ -362,7 +387,7 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
               ),
               SizedBox(height: 4),
               Text(
-                'Ordenado por las más usadas. Toca una actividad para convertirla en recurrente.',
+                'Todas tus actividades, hábitos y puntuales. Toca una puntual para convertirla en recurrente.',
                 style: GoogleFonts.inter(
                   fontSize: r.bodyFontSize - 2,
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
@@ -374,7 +399,8 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                   builder: (_, ref, child) {
                     final async = ref.watch(activityHistoryProvider(user.id));
                     return async.when(
-                      loading: () => const Center(child: CircularProgressIndicator()),
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
                       error: (e, st) => Center(child: Text('Error: $e')),
                       data: (list) {
                         if (list.isEmpty) {
@@ -394,9 +420,8 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                                 Text(
                                   'Aun no hay actividades manuales guardadas.',
                                   style: GoogleFonts.inter(
-                                    color: theme.colorScheme.onSurface.withValues(
-                                      alpha: 0.5,
-                                    ),
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.5),
                                   ),
                                 ),
                               ],
@@ -410,22 +435,28 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                           itemBuilder: (_, i) {
                             final item = list[i];
                             final completedCount =
-                                ref.watch(
-                                  _completedCountProvider((
-                                    userId: user.id,
-                                    title: item.title,
-                                  )),
-                                ).value ?? 0;
+                                ref
+                                    .watch(
+                                      _completedCountProvider((
+                                        userId: user.id,
+                                        templateId: item.sample.templateId,
+                                        title: item.title,
+                                      )),
+                                    )
+                                    .value ??
+                                0;
                             return _HistoryTile(
                               item: item,
                               completedCount: completedCount,
                               r: r,
                               neon: theme.colorScheme.primary,
                               onSurface: theme.colorScheme.onSurface,
-                              onConvert: () {
-                                Navigator.of(context).pop();
-                                _openConvertDialog(item);
-                              },
+                              onConvert: item.isHabit
+                                  ? null
+                                  : () {
+                                      Navigator.of(context).pop();
+                                      _openConvertDialog(item);
+                                    },
                             );
                           },
                         );
@@ -496,7 +527,9 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                       '¿En qué días debe aparecer?',
                       style: GoogleFonts.inter(
                         fontSize: r.bodyFontSize - 1,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                     ),
                     SizedBox(height: 12),
@@ -573,7 +606,9 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                               'Se creará desde HOY. Aparecerá desmarcada los días asignados y marcarla confirmará que ya la hiciste.',
                               style: GoogleFonts.inter(
                                 fontSize: 11,
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.7,
+                                ),
                               ),
                             ),
                           ),
@@ -585,14 +620,17 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: isSaving ? null : () => Navigator.of(dialogCtx).pop(),
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.of(dialogCtx).pop(),
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton.icon(
                   onPressed: isSaving
                       ? null
                       : () async {
-                          if (shortcut == _FrequencyShortcut.custom && weekdays.isEmpty) {
+                          if (shortcut == _FrequencyShortcut.custom &&
+                              weekdays.isEmpty) {
                             ScaffoldMessenger.of(dialogCtx).showSnackBar(
                               const SnackBar(
                                 content: Text('Selecciona al menos un día'),
@@ -610,13 +648,18 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                             activityType: item.sample.activityType,
                             targetValue: item.sample.targetValue,
                             unit: item.sample.unit,
-                            stepValue: item.sample.stepValue > 0 ? item.sample.stepValue : 1,
+                            stepValue: item.sample.stepValue > 0
+                                ? item.sample.stepValue
+                                : 1,
                             frequency: getFrequency(),
                             frequencyConfig: getConfig(),
                           );
                           try {
                             await db.insertActivityTemplate(tpl);
-                            await db.ensureDailyActivities(user.id, DateTime.now());
+                            await db.ensureDailyActivities(
+                              user.id,
+                              DateTime.now(),
+                            );
                             if (ctx.mounted) Navigator.of(dialogCtx).pop();
                             ref.invalidate(activityTemplatesProvider(user.id));
                             ref.invalidate(
@@ -626,11 +669,11 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                               )),
                             );
                             if (mounted) {
-                              ScaffoldMessenger.of(
-                                context,
-                              ).showSnackBar(
+                              ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('"${item.title}" ahora es recurrente'),
+                                  content: Text(
+                                    '"${item.title}" ahora es recurrente',
+                                  ),
                                 ),
                               );
                             }
@@ -823,7 +866,8 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                       label: 'Si / No',
                       icon: Icons.check_circle_outline,
                       selected: _activityType == ActivityType.boolean,
-                      onTap: () => setState(() => _activityType = ActivityType.boolean),
+                      onTap: () =>
+                          setState(() => _activityType = ActivityType.boolean),
                       r: r,
                     ),
                     SizedBox(width: 10),
@@ -831,7 +875,8 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                       label: 'Cantidad',
                       icon: Icons.numbers,
                       selected: _activityType == ActivityType.numeric,
-                      onTap: () => setState(() => _activityType = ActivityType.numeric),
+                      onTap: () =>
+                          setState(() => _activityType = ActivityType.numeric),
                       r: r,
                     ),
                   ],
@@ -846,7 +891,9 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                         flex: 3,
                         child: TextField(
                           controller: _targetController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           decoration: const InputDecoration(
                             hintText: 'Valor objetivo',
                             prefixIcon: Icon(Icons.flag_outlined),
@@ -895,7 +942,8 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                     _ShortcutChip(
                       label: 'L-V',
                       icon: Icons.calendar_view_week,
-                      selected: _frequencyShortcut == _FrequencyShortcut.weekdays,
+                      selected:
+                          _frequencyShortcut == _FrequencyShortcut.weekdays,
                       onTap: () => setState(() {
                         _frequencyShortcut = _FrequencyShortcut.weekdays;
                         _selectedWeekdays
@@ -907,7 +955,8 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                     _ShortcutChip(
                       label: 'Todos los días',
                       icon: Icons.autorenew,
-                      selected: _frequencyShortcut == _FrequencyShortcut.allDays,
+                      selected:
+                          _frequencyShortcut == _FrequencyShortcut.allDays,
                       onTap: () => setState(() {
                         _frequencyShortcut = _FrequencyShortcut.allDays;
                         _selectedWeekdays
@@ -986,7 +1035,8 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                   for (final t in templates) t.id: t,
                 };
                 return activitiesAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(child: Text('Error: $e')),
                   data: (activities) {
                     if (activities.isEmpty) {
@@ -1034,7 +1084,11 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                         if (pending.isNotEmpty) ...[
                           Row(
                             children: [
-                              Icon(Icons.pending_actions, color: neon, size: 20),
+                              Icon(
+                                Icons.pending_actions,
+                                color: neon,
+                                size: 20,
+                              ),
                               SizedBox(width: 6),
                               Text(
                                 'Pendientes (${pending.length})',
@@ -1050,15 +1104,19 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                           ...pending.map(
                             (a) => _ActivityTile(
                               activity: a,
-                              frequencyLabel: _buildFrequencyLabel(a, templatesMap),
+                              frequencyLabel: _buildFrequencyLabel(
+                                a,
+                                templatesMap,
+                              ),
                               r: r,
                               neon: neon,
                               surface: theme.colorScheme.surface,
                               onText: theme.colorScheme.onSurface,
-                              onAlpha: (x) =>
-                                  theme.colorScheme.onSurface.withValues(alpha: x),
+                              onAlpha: (x) => theme.colorScheme.onSurface
+                                  .withValues(alpha: x),
                               onToggle: () => _toggleComplete(a),
-                              onUpdateProgress: (delta) => _updateProgress(a, delta),
+                              onUpdateProgress: (delta) =>
+                                  _updateProgress(a, delta),
                               onDelete: () async {
                                 if (user == null) return;
                                 await ref
@@ -1102,13 +1160,16 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                           ...completed.map(
                             (a) => _ActivityTile(
                               activity: a,
-                              frequencyLabel: _buildFrequencyLabel(a, templatesMap),
+                              frequencyLabel: _buildFrequencyLabel(
+                                a,
+                                templatesMap,
+                              ),
                               r: r,
                               neon: neon,
                               surface: theme.colorScheme.surface,
                               onText: theme.colorScheme.onSurface,
-                              onAlpha: (x) =>
-                                  theme.colorScheme.onSurface.withValues(alpha: x),
+                              onAlpha: (x) => theme.colorScheme.onSurface
+                                  .withValues(alpha: x),
                               onToggle: () => _toggleComplete(a),
                               onUpdateProgress: (delta) {},
                               onDelete: () async {
@@ -1145,7 +1206,7 @@ class _HistoryTile extends StatelessWidget {
   final ResponsiveHelper r;
   final Color neon;
   final Color onSurface;
-  final VoidCallback onConvert;
+  final VoidCallback? onConvert;
 
   const _HistoryTile({
     required this.item,
@@ -1160,8 +1221,9 @@ class _HistoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final lastDateStr = DateFormat('d/MM/yyyy').format(item.lastDate);
-    final completionPct =
-        item.count == 0 ? 0.0 : (completedCount / item.count).clamp(0.0, 1.0);
+    final completionPct = item.count == 0
+        ? 0.0
+        : (completedCount / item.count).clamp(0.0, 1.0);
     return Material(
       color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(12),
@@ -1241,20 +1303,51 @@ class _HistoryTile extends StatelessWidget {
                 ),
               ),
               SizedBox(width: 10),
-              Column(
-                children: [
-                  Icon(Icons.chevron_right, color: onSurface.withValues(alpha: 0.35)),
-                  SizedBox(height: 2),
-                  Text(
-                    'Convertir',
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      color: neon,
-                      fontWeight: FontWeight.w500,
-                    ),
+              if (item.isHabit)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
                   ),
-                ],
-              ),
+                  decoration: BoxDecoration(
+                    color: neon.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: neon.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.repeat, size: 12, color: neon),
+                      SizedBox(width: 4),
+                      Text(
+                        'Hábito',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: neon,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Column(
+                  children: [
+                    Icon(
+                      Icons.chevron_right,
+                      color: onSurface.withValues(alpha: 0.35),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Convertir',
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        color: neon,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -1268,11 +1361,7 @@ class _MiniTag extends StatelessWidget {
   final String text;
   final Color color;
 
-  const _MiniTag({
-    required this.icon,
-    required this.text,
-    required this.color,
-  });
+  const _MiniTag({required this.icon, required this.text, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -1281,10 +1370,7 @@ class _MiniTag extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: color),
         SizedBox(width: 3),
-        Text(
-          text,
-          style: GoogleFonts.inter(fontSize: 11, color: color),
-        ),
+        Text(text, style: GoogleFonts.inter(fontSize: 11, color: color)),
       ],
     );
   }
@@ -1323,21 +1409,31 @@ class _ShortcutChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected ? neon : theme.colorScheme.onSurface.withValues(alpha: 0.15),
+              color: selected
+                  ? neon
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.15),
               width: 1.5,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: selected ? neon : theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+              Icon(
+                icon,
+                size: 14,
+                color: selected
+                    ? neon
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
               SizedBox(width: 5),
               Text(
                 label,
                 style: GoogleFonts.inter(
                   fontSize: r.bodyFontSize - 2,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? neon : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: selected
+                      ? neon
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -1381,21 +1477,31 @@ class _TypeChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected ? neon : theme.colorScheme.onSurface.withValues(alpha: 0.15),
+              color: selected
+                  ? neon
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.15),
               width: 1.5,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: selected ? neon : theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+              Icon(
+                icon,
+                size: 16,
+                color: selected
+                    ? neon
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
               SizedBox(width: 6),
               Text(
                 label,
                 style: GoogleFonts.inter(
                   fontSize: r.bodyFontSize - 1,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? neon : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: selected
+                      ? neon
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -1472,13 +1578,11 @@ class _ActivityTile extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: done ? neon : Colors.transparent,
-            border: Border.all(
-              color: done ? neon : onAlpha(0.25),
-              width: 2,
-            ),
+            border: Border.all(color: done ? neon : onAlpha(0.25), width: 2),
           ),
-          child:
-              done ? const Icon(Icons.check, color: Colors.white, size: 14) : null,
+          child: done
+              ? const Icon(Icons.check, color: Colors.white, size: 14)
+              : null,
         ),
         SizedBox(width: 12),
         Expanded(
@@ -1498,10 +1602,7 @@ class _ActivityTile extends StatelessWidget {
               SizedBox(height: 2),
               Text(
                 frequencyLabel,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: onAlpha(0.4),
-                ),
+                style: GoogleFonts.inter(fontSize: 11, color: onAlpha(0.4)),
               ),
             ],
           ),
@@ -1552,10 +1653,7 @@ class _ActivityTile extends StatelessWidget {
                   SizedBox(height: 2),
                   Text(
                     frequencyLabel,
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      color: onAlpha(0.4),
-                    ),
+                    style: GoogleFonts.inter(fontSize: 11, color: onAlpha(0.4)),
                   ),
                 ],
               ),
