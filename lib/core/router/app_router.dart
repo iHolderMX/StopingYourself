@@ -9,6 +9,7 @@ import '../../features/profile/screens/profile_screen.dart';
 import '../../features/relapse/screens/relapse_tracking_screen.dart';
 import '../../features/relapse/screens/relapse_history_screen.dart';
 import '../../features/money/presentation/finance_hub_screen.dart';
+import '../../features/daily_expenses/presentation/daily_expenses_screen.dart';
 import '../../features/health/screens/health_tracking_screen.dart';
 import '../../features/activities/screens/daily_activities_screen.dart';
 import '../../features/activities/screens/activity_templates_screen.dart';
@@ -61,6 +62,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/money',
             builder: (context, state) => const FinanceHubScreen(),
+          ),
+          GoRoute(
+            path: '/daily-expenses',
+            builder: (context, state) => const DailyExpensesScreen(),
           ),
           GoRoute(
             path: '/health',

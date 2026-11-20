@@ -53,3 +53,4 @@ app.*.map.json
 
 # Salida de build de Vercel
 .vercel
+.env*

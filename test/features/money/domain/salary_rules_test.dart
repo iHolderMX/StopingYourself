@@ -34,12 +34,26 @@ void main() {
   });
 
   group('SalaryRules.dailySalary', () {
-    test('divide el salario mensual entre 30 dias', () {
-      expect(SalaryRules.dailySalary(30000), closeTo(1000, 0.0001));
+    test('divide el salario mensual entre los dias reales del mes', () {
+      // Abril tiene 30 dias: 30000 / 30 = 1000.
+      expect(
+        SalaryRules.dailySalary(30000, on: DateTime(2026, 4, 15)),
+        closeTo(1000, 0.0001),
+      );
+      // Enero tiene 31 dias: 30000 / 31 = 967.74...
+      expect(
+        SalaryRules.dailySalary(30000, on: DateTime(2026, 1, 10)),
+        closeTo(30000 / 31, 0.0001),
+      );
+      // Febrero bisiesto tiene 29 dias: 30000 / 29.
+      expect(
+        SalaryRules.dailySalary(30000, on: DateTime(2024, 2, 5)),
+        closeTo(30000 / 29, 0.0001),
+      );
     });
 
     test('sin salario devuelve 0 en lugar de dividir entre cero', () {
-      expect(SalaryRules.dailySalary(0), 0);
+      expect(SalaryRules.dailySalary(0, on: DateTime(2026, 4, 15)), 0);
     });
   });
 
@@ -60,10 +74,23 @@ void main() {
     });
 
     test('daysOfSalaryCovered convierte ahorro en dias', () {
-      // Ahorrar un salario completo equivale a 30 dias.
+      // Ahorrar un salario completo cubre todos los dias del mes (30 en abril).
       expect(
-        SalaryRules.daysOfSalaryCovered(amount: 20000, monthlySalary: 20000),
+        SalaryRules.daysOfSalaryCovered(
+          amount: 20000,
+          monthlySalary: 20000,
+          on: DateTime(2026, 4, 15),
+        ),
         closeTo(30, 0.0001),
+      );
+      // En un mes de 31 dias, el mismo ahorro cubre 31 dias.
+      expect(
+        SalaryRules.daysOfSalaryCovered(
+          amount: 20000,
+          monthlySalary: 20000,
+          on: DateTime(2026, 1, 15),
+        ),
+        closeTo(31, 0.0001),
       );
     });
 
@@ -86,11 +113,12 @@ void main() {
     });
 
     test('dailyEarningsAsPercentOfDailySalary compara contra un dia', () {
-      // Salario diario = 1000. Ganar 10 al dia es el 1%.
+      // Abril: salario diario = 1000. Ganar 10 al dia es el 1%.
       expect(
         SalaryRules.dailyEarningsAsPercentOfDailySalary(
           dailyEarnings: 10,
           monthlySalary: 30000,
+          on: DateTime(2026, 4, 15),
         ),
         closeTo(1, 0.0001),
       );

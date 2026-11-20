@@ -395,12 +395,19 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
           SizedBox(height: r.cardSpacing + 6),
           _pieChart(theme, r, available, expenses, remaining, totalDailyEarnings),
           if (!widget.summaryOnly) ...[
-            SizedBox(height: r.cardSpacing + 2),
-            _chartLegend(theme, r, expenses, remaining, totalDailyEarnings, pieTotal: (SalaryRules.totalQuincenaPlanned(expenses) + (remaining > 0 ? remaining : 0))),
             SizedBox(height: r.cardSpacing + 6),
             _addExpenseForm(theme, r, userId),
             SizedBox(height: r.cardSpacing + 6),
-            _expensesList(theme, r, userId, expenses),
+            _expensesList(
+              theme,
+              r,
+              userId,
+              expenses,
+              remaining,
+              totalDailyEarnings,
+              pieTotal: SalaryRules.totalQuincenaPlanned(expenses) +
+                  (remaining > 0 ? remaining : 0),
+            ),
           ],
         ],
       ),
@@ -468,20 +475,36 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
     ResponsiveHelper r,
     String userId,
     List<QuincenaExpense> expenses,
-  ) {
+    double remaining,
+    double totalDailyEarnings, {
+    required double pieTotal,
+  }) {
+    final hasItems = expenses.isNotEmpty || remaining > 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Tus gastos (${expenses.length})',
-          style: GoogleFonts.outfit(
-            fontSize: r.subtitleFontSize - 1,
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-          ),
+        Row(
+          children: [
+            Text(
+              'Tus gastos (${expenses.length})',
+              style: GoogleFonts.outfit(
+                fontSize: r.subtitleFontSize - 1,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'Toca para ver detalle',
+              style: GoogleFonts.inter(
+                fontSize: r.bodyFontSize - 4,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ),
         SizedBox(height: r.cardSpacing - 4),
-        if (expenses.isEmpty)
+        if (!hasItems)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -510,8 +533,24 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
           )
         else ...[
           ...expenses.asMap().entries.map(
-            (entry) => _expenseRow(theme, r, userId, entry.key, entry.value),
+            (entry) => _expenseRow(
+              theme,
+              r,
+              userId,
+              entry.key,
+              entry.value,
+              totalDailyEarnings,
+              pieTotal,
+            ),
           ),
+          if (remaining > 0)
+            _remainingRow(
+              theme,
+              r,
+              remaining,
+              totalDailyEarnings,
+              pieTotal,
+            ),
           SizedBox(height: r.cardSpacing),
           SizedBox(
             height: r.buttonHeight,
@@ -538,55 +577,238 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
     String userId,
     int index,
     QuincenaExpense expense,
+    double totalDailyEarnings,
+    double pieTotal,
   ) {
+    final color = MoneyColors.chartColorAt(index);
+    final pct = pieTotal > 0 ? expense.amount / pieTotal * 100 : 0.0;
+    final yieldDays = _yieldDaysLabel(expense.amount, totalDailyEarnings);
+
     return Container(
-      margin: EdgeInsets.only(bottom: r.cardSpacing - 6),
-      padding: EdgeInsets.symmetric(
-        horizontal: r.cardSpacing - 2,
-        vertical: r.cardSpacing - 6,
-      ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(r.borderRadius - 2),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: MoneyColors.chartColorAt(index),
-              shape: BoxShape.circle,
-            ),
+      margin: EdgeInsets.only(bottom: r.cardSpacing - 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showExpenseDetailSheet(
+            theme,
+            r,
+            expense.name,
+            expense.amount,
+            pct,
+            totalDailyEarnings,
+            color,
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              expense.name,
-              style: GoogleFonts.inter(
-                fontSize: r.bodyFontSize - 1,
-                fontWeight: FontWeight.w500,
+          borderRadius: BorderRadius.circular(r.borderRadius - 2),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: r.cardSpacing - 4,
+              vertical: r.cardSpacing - 6,
+            ),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(r.borderRadius - 2),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
               ),
             ),
-          ),
-          Text(
-            '\$${expense.amount.toStringAsFixed(2)}',
-            style: GoogleFonts.outfit(
-              fontSize: r.bodyFontSize,
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        expense.name,
+                        style: GoogleFonts.inter(
+                          fontSize: r.bodyFontSize - 1,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '\$${expense.amount.toStringAsFixed(2)}',
+                          style: GoogleFonts.outfit(
+                            fontSize: r.bodyFontSize - 1,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
+                        ),
+                        Text(
+                          '${pct.toStringAsFixed(1)}%',
+                          style: GoogleFonts.inter(
+                            fontSize: r.bodyFontSize - 4,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      color: MoneyColors.negative,
+                      onPressed: () => _deleteExpense(userId, expense),
+                      tooltip: 'Eliminar gasto',
+                    ),
+                  ],
+                ),
+                SizedBox(height: r.cardSpacing - 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.trending_up,
+                      size: 14,
+                      color: MoneyColors.positive,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        yieldDays,
+                        style: GoogleFonts.outfit(
+                          fontSize: r.bodyFontSize - 3,
+                          fontWeight: FontWeight.w600,
+                          color: MoneyColors.positive,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.info_outline,
+                      size: 14,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 20),
-            color: MoneyColors.negative,
-            onPressed: () => _deleteExpense(userId, expense),
-            tooltip: 'Eliminar gasto',
+        ),
+      ),
+    );
+  }
+
+  Widget _remainingRow(
+    ThemeData theme,
+    ResponsiveHelper r,
+    double remaining,
+    double totalDailyEarnings,
+    double pieTotal,
+  ) {
+    final color = MoneyColors.positive;
+    final pct = pieTotal > 0 ? remaining / pieTotal * 100 : 0.0;
+    final yieldDays = _yieldDaysLabel(remaining, totalDailyEarnings);
+
+    return Container(
+      margin: EdgeInsets.only(bottom: r.cardSpacing - 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showExpenseDetailSheet(
+            theme,
+            r,
+            'Restante',
+            remaining,
+            pct,
+            totalDailyEarnings,
+            color,
           ),
-        ],
+          borderRadius: BorderRadius.circular(r.borderRadius - 2),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: r.cardSpacing - 4,
+              vertical: r.cardSpacing - 6,
+            ),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(r.borderRadius - 2),
+              border: Border.all(
+                color: MoneyColors.positive.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Restante',
+                        style: GoogleFonts.inter(
+                          fontSize: r.bodyFontSize - 1,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '\$${remaining.toStringAsFixed(2)}',
+                          style: GoogleFonts.outfit(
+                            fontSize: r.bodyFontSize - 1,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
+                        ),
+                        Text(
+                          '${pct.toStringAsFixed(1)}%',
+                          style: GoogleFonts.inter(
+                            fontSize: r.bodyFontSize - 4,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                SizedBox(height: r.cardSpacing - 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.trending_up,
+                      size: 14,
+                      color: MoneyColors.positive,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        yieldDays,
+                        style: GoogleFonts.outfit(
+                          fontSize: r.bodyFontSize - 3,
+                          fontWeight: FontWeight.w600,
+                          color: MoneyColors.positive,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.info_outline,
+                      size: 14,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -676,164 +898,6 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _chartLegend(
-    ThemeData theme,
-    ResponsiveHelper r,
-    List<QuincenaExpense> expenses,
-    double remaining,
-    double totalDailyEarnings, {
-    required double pieTotal,
-  }) {
-    if (expenses.isEmpty && remaining <= 0) {
-      return const SizedBox.shrink();
-    }
-    final List<_LegendItem> items = [];
-    for (var i = 0; i < expenses.length; i++) {
-      items.add(_LegendItem(
-        label: expenses[i].name,
-        amount: expenses[i].amount,
-        color: MoneyColors.chartColorAt(i),
-        isRemaining: false,
-      ));
-    }
-    if (remaining > 0) {
-      items.add(_LegendItem(
-        label: 'Restante',
-        amount: remaining,
-        color: MoneyColors.positive,
-        isRemaining: true,
-      ));
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Desglose: toca un elemento para ver mas',
-          style: GoogleFonts.inter(
-            fontSize: r.bodyFontSize - 3,
-            fontWeight: FontWeight.w500,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        SizedBox(height: r.cardSpacing - 6),
-        ...items.asMap().entries.map((entry) {
-          final e = entry.value;
-          final pct = pieTotal > 0 ? e.amount / pieTotal * 100 : 0.0;
-          final yieldDays = _yieldDaysLabel(e.amount, totalDailyEarnings);
-          final backgroundColor = e.isRemaining
-              ? theme.colorScheme.primary.withValues(alpha: 0.06)
-              : theme.colorScheme.surface;
-          final borderColor = e.isRemaining
-              ? MoneyColors.positive.withValues(alpha: 0.3)
-              : theme.colorScheme.outlineVariant.withValues(alpha: 0.3);
-          return Padding(
-            padding: EdgeInsets.only(bottom: r.cardSpacing - 8),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _showExpenseDetailSheet(
-                  theme,
-                  r,
-                  e.label,
-                  e.amount,
-                  pct,
-                  totalDailyEarnings,
-                  e.color,
-                ),
-                borderRadius: BorderRadius.circular(r.borderRadius - 2),
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: r.cardSpacing - 4,
-                    vertical: r.cardSpacing - 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: backgroundColor,
-                    borderRadius: BorderRadius.circular(r.borderRadius - 2),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: e.color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              e.label,
-                              style: GoogleFonts.inter(
-                                fontSize: r.bodyFontSize - 2,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '\$${e.amount.toStringAsFixed(2)}',
-                                style: GoogleFonts.outfit(
-                                  fontSize: r.bodyFontSize - 2,
-                                  fontWeight: FontWeight.bold,
-                                  color: e.color,
-                                ),
-                              ),
-                              Text(
-                                '${pct.toStringAsFixed(1)}%',
-                                style: GoogleFonts.inter(
-                                  fontSize: r.bodyFontSize - 4,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: r.cardSpacing - 8),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.trending_up,
-                            size: 14,
-                            color: MoneyColors.positive,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              yieldDays,
-                              style: GoogleFonts.outfit(
-                                fontSize: r.bodyFontSize - 3,
-                                fontWeight: FontWeight.w600,
-                                color: MoneyColors.positive,
-                              ),
-                            ),
-                          ),
-                          Icon(
-                            Icons.info_outline,
-                            size: 14,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }),
-      ],
     );
   }
 
@@ -1249,18 +1313,4 @@ class _NextQuincenaCardState extends ConsumerState<NextQuincenaCard> {
       ),
     );
   }
-}
-
-class _LegendItem {
-  final String label;
-  final double amount;
-  final Color color;
-  final bool isRemaining;
-
-  _LegendItem({
-    required this.label,
-    required this.amount,
-    required this.color,
-    required this.isRemaining,
-  });
 }

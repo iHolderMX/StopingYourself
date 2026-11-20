@@ -10,8 +10,12 @@ import '../../../models/quincena_expense.dart';
 class SalaryRules {
   const SalaryRules._();
 
-  /// Dias que se usan para pasar de salario mensual a salario diario.
-  static const int daysPerMonth = 30;
+  /// Numero de dias reales del mes de [date].
+  ///
+  /// En vez de un 30 fijo se usa el mes en curso (28, 29, 30 o 31) para que
+  /// el salario diario refleje el mes que se esta viviendo.
+  static int daysInMonth(DateTime date) =>
+      DateTime(date.year, date.month + 1, 0).day;
 
   /// Numero de quincenas por mes.
   ///
@@ -30,10 +34,10 @@ class SalaryRules {
     return monthlySalary / quincenasPerMonth;
   }
 
-  /// Salario equivalente a un dia.
-  static double dailySalary(double monthlySalary) {
+  /// Salario equivalente a un dia del mes de [on] (por defecto, hoy).
+  static double dailySalary(double monthlySalary, {DateTime? on}) {
     if (!hasSalary(monthlySalary)) return 0;
-    return monthlySalary / daysPerMonth;
+    return monthlySalary / daysInMonth(on ?? DateTime.now());
   }
 
   /// Que porcentaje del salario representa [amount].
@@ -47,13 +51,14 @@ class SalaryRules {
     return amount / monthlySalary * 100;
   }
 
-  /// Cuantos dias de salario cubre [amount].
+  /// Cuantos dias de salario cubre [amount] (segun el mes de [on]).
   static double? daysOfSalaryCovered({
     required double amount,
     required double monthlySalary,
+    DateTime? on,
   }) {
     if (!hasSalary(monthlySalary)) return null;
-    return amount / monthlySalary * daysPerMonth;
+    return amount / monthlySalary * daysInMonth(on ?? DateTime.now());
   }
 
   /// Cuantos meses de salario cubre [amount].
@@ -69,8 +74,9 @@ class SalaryRules {
   static double? dailyEarningsAsPercentOfDailySalary({
     required double dailyEarnings,
     required double monthlySalary,
+    DateTime? on,
   }) {
-    final perDay = dailySalary(monthlySalary);
+    final perDay = dailySalary(monthlySalary, on: on);
     if (perDay <= 0) return null;
     return dailyEarnings / perDay * 100;
   }

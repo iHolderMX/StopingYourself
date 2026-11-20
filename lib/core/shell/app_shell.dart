@@ -25,6 +25,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       '/lessons-shell',
       '/relapse',
       '/money',
+      '/daily-expenses',
       '/health',
       '/activities',
       '/games',
@@ -134,6 +135,11 @@ class _DesktopLayout extends ConsumerWidget {
                 label: Text('Finanzas'),
               ),
               NavigationRailDestination(
+                icon: Icon(Icons.payments_outlined),
+                selectedIcon: Icon(Icons.payments),
+                label: Text('Gasto Diario'),
+              ),
+              NavigationRailDestination(
                 icon: Icon(Icons.fitness_center_outlined),
                 selectedIcon: Icon(Icons.fitness_center),
                 label: Text('Salud'),
@@ -183,6 +189,7 @@ class _MobileDrawerLayout extends ConsumerWidget {
     (Icons.school_outlined, Icons.school_rounded, 'Aprender'),
     (Icons.warning_amber_outlined, Icons.warning_amber_rounded, 'Recaidas'),
     (Icons.savings_outlined, Icons.savings_rounded, 'Finanzas'),
+    (Icons.payments_outlined, Icons.payments, 'Gasto Diario'),
     (Icons.fitness_center_outlined, Icons.fitness_center, 'Salud'),
     (Icons.checklist_outlined, Icons.checklist_rounded, 'Tareas'),
     (Icons.sports_esports_outlined, Icons.sports_esports, 'Juegos'),
